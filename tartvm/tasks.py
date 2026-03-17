@@ -5,6 +5,7 @@ import logging
 import secrets
 import subprocess
 import time
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Dict, List, Optional, Set, Tuple
 
@@ -148,6 +149,11 @@ class TaskManager:
                 self.inventory = {vm.name: vm for vm in vms}
                 self.inventory_last_refresh = time.time()
             await self._refresh_images()
+            # Populate disk_size from source Tart images (Orchard doesn't provide it)
+            image_disk: Dict[str, int] = {img.name: img.disk_size for img in self._images if img.disk_size}
+            for vm in self.inventory.values():
+                if not vm.disk_size and vm.image and vm.image in image_disk:
+                    vm.disk_size = image_disk[vm.image]
             await self._notify_inventory_subscribers()
             return vms
 
@@ -269,6 +275,9 @@ class TaskManager:
                 if vm.image:
                     image_to_vms.setdefault(vm.image, []).append(vm.name)
 
+        # Get birth times from filesystem (tart's Accessed field is unreliable)
+        birth_times = await self._get_image_birth_times()
+
         images: List[TartImageModel] = []
         for item in raw:
             name = item.get("Name", "")
@@ -285,11 +294,35 @@ class TaskManager:
                 disk_size=item.get("Disk"),
                 size=item.get("Size"),
                 os=self._detect_os(name),
-                last_accessed=item.get("Accessed"),
+                last_accessed=birth_times.get(name) or item.get("Accessed"),
                 used_by=image_to_vms.get(name, []),
             ))
 
         return images
+
+    async def _get_image_birth_times(self) -> Dict[str, str]:
+        """Get creation (birth) times for local Tart images via stat."""
+        tart_dir = Path.home() / ".tart" / "vms"
+        if not tart_dir.exists():
+            return {}
+        birth_times: Dict[str, str] = {}
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "stat", "-f", "%N\t%SB", "-t", "%Y-%m-%dT%H:%M:%SZ",
+                *[str(p) for p in tart_dir.iterdir() if p.is_dir()],
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await proc.communicate()
+            for line in stdout.decode().strip().split("\n"):
+                if "\t" not in line:
+                    continue
+                path, birth = line.split("\t", 1)
+                name = Path(path).name
+                birth_times[name] = birth
+        except Exception:
+            pass
+        return birth_times
 
     # --- VM Operations (via Orchard) ---
 
