@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}VM Control Center{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/styles.css?v=10" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav style="background-color: var(--surface); border-bottom: 1px solid var(--border);">
+        <div class="container-main px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-12">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <span class="text-sm font-semibold text-emphasis">VM Control Center</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container-main py-6 px-4 sm:px-6 lg:px-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <div id="toast" class="fixed bottom-4 right-4 hidden">
+        <div class="toast toast-info px-4 py-3 flex items-center">
+            <span id="toast-message" class="text-sm"></span>
+            <button id="toast-close" class="ml-4 opacity-60 hover:opacity-100 transition-opacity">
+                <i class="fas fa-times text-xs"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        window.API_TOKEN = {{ api_token | tojson }};
+    </script>
+    <script src="/static/js/api.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

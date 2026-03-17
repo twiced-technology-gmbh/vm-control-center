@@ -1,0 +1,2104 @@
+{% extends "base.html" %}
+
+{% block title %}VM Control Center{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex justify-between items-center">
+        <div class="flex items-center gap-1">
+            <button class="tab active" data-tab="vms">Virtual Machines</button>
+            <button class="tab" data-tab="images">Images</button>
+            <button class="tab" data-tab="pipeline">Pipeline</button>
+        </div>
+        <div class="flex gap-1">
+            <button id="refresh-btn" class="icon-btn icon-btn-orange" data-tooltip="Refresh">
+                <i class="fas fa-sync-alt" style="font-size: 11px;"></i>
+            </button>
+            <button id="settings-btn" class="icon-btn icon-btn-purple" data-tooltip="Settings">
+                <i class="fas fa-cog" style="font-size: 11px;"></i>
+            </button>
+            <button id="create-worker-btn" class="icon-btn icon-btn-blue" data-tooltip="Add Worker">
+                <i class="fas fa-server" style="font-size: 11px;"></i>
+            </button>
+            <button id="create-vm-btn" class="icon-btn icon-btn-green" data-tooltip="Create VM">
+                <i class="fas fa-plus" style="font-size: 11px;"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Active Operations Panel -->
+    <div id="active-tasks-panel" class="mt-4 hidden">
+        <div class="surface rounded-lg p-4">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-tasks text-secondary text-xs"></i>
+                    <span class="text-sm font-medium text-primary">Active Operations</span>
+                    <span id="active-tasks-count" class="badge badge-blue">0</span>
+                </div>
+            </div>
+            <div id="active-tasks-list" class="space-y-2"></div>
+        </div>
+    </div>
+
+
+    <!-- Hosts Panel -->
+    <div id="hosts-panel" class="mt-4 hidden">
+        <div class="surface rounded-lg">
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border);" class="flex items-center gap-3">
+                <i class="fas fa-network-wired" style="color: #fb923c;"></i>
+                <span class="text-sm font-medium text-emphasis">Hosts</span>
+                <span class="text-xs text-secondary">(Orchard Workers)</span>
+            </div>
+            <div id="hosts-list" style="padding: 12px 16px;">
+            </div>
+        </div>
+    </div>
+
+    <!-- VMs Tab -->
+    <div id="tab-vms">
+
+    <!-- Loading State -->
+    <div id="vms-loading" class="mt-4 p-8 text-center surface rounded-lg">
+        <div class="spinner h-7 w-7 mx-auto"></div>
+        <p class="mt-3 text-sm text-secondary">Loading VMs...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div id="vms-empty" class="hidden mt-4 p-8 text-center surface rounded-lg">
+        <i class="fas fa-server text-3xl text-secondary mb-3 block"></i>
+        <h3 class="text-sm font-medium text-emphasis">No VMs found</h3>
+        <p class="mt-1 text-xs text-secondary">Create a VM to get started.</p>
+    </div>
+
+    <!-- VMs Section -->
+    <div id="vms-section" class="mt-4 hidden">
+        <div class="surface rounded-lg" style="border-color: rgba(34, 197, 94, 0.2);">
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border);" class="vm-section-header flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-server" style="color: #4ade80;"></i>
+                    <span class="text-sm font-medium text-emphasis">Virtual Machines</span>
+                    <span class="text-xs text-secondary">(Orchard managed)</span>
+                </div>
+                <div id="vm-filters" class="flex items-center gap-2">
+                    <div class="vm-filter-dropdown" data-filter-group="type">
+                        <button class="vm-filter-trigger">
+                            <i class="fas fa-filter" style="font-size: 9px; opacity: 0.5;"></i>
+                            <span class="vm-filter-label">Type</span>
+                            <i class="fas fa-chevron-down" style="font-size: 8px; opacity: 0.4;"></i>
+                        </button>
+                        <div class="vm-filter-menu hidden">
+                            <button class="vm-filter-option selected" data-value="all"><i class="fas fa-check"></i>All</button>
+                            <button class="vm-filter-option" data-value="claw"><i class="fas fa-check"></i>claw-*</button>
+                            <button class="vm-filter-option" data-value="infra"><i class="fas fa-check"></i>infra-*</button>
+                        </div>
+                    </div>
+                    <div class="vm-filter-dropdown" data-filter-group="os">
+                        <button class="vm-filter-trigger">
+                            <i class="fas fa-filter" style="font-size: 9px; opacity: 0.5;"></i>
+                            <span class="vm-filter-label">OS</span>
+                            <i class="fas fa-chevron-down" style="font-size: 8px; opacity: 0.4;"></i>
+                        </button>
+                        <div class="vm-filter-menu hidden">
+                            <button class="vm-filter-option selected" data-value="all"><i class="fas fa-check"></i>All</button>
+                            <button class="vm-filter-option" data-value="macOS"><i class="fas fa-check"></i>macOS</button>
+                            <button class="vm-filter-option" data-value="Linux"><i class="fas fa-check"></i>Linux</button>
+                        </div>
+                    </div>
+                    <div class="vm-filter-dropdown" data-filter-group="worker">
+                        <button class="vm-filter-trigger">
+                            <i class="fas fa-filter" style="font-size: 9px; opacity: 0.5;"></i>
+                            <span class="vm-filter-label">Worker</span>
+                            <i class="fas fa-chevron-down" style="font-size: 8px; opacity: 0.4;"></i>
+                        </button>
+                        <div class="vm-filter-menu hidden" id="filter-worker-menu">
+                            <button class="vm-filter-option selected" data-value="all"><i class="fas fa-check"></i>All</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="vms-table" class="hidden overflow-x-auto">
+                <table class="dark-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 14%;">Name</th>
+                            <th style="width: 90px;">Status</th>
+                            <th style="width: 70px;">OS</th>
+                            <th style="width: 130px;">Worker</th>
+                            <th style="width: 120px;">Tailscale IP</th>
+                            <th>URLs</th>
+                            <th style="width: 60px;">CPU</th>
+                            <th style="width: 80px;">Memory</th>
+                            <th style="width: 90px;">Restart</th>
+                            <th style="width: 160px; text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vms-list"></tbody>
+                </table>
+            </div>
+            <div id="vms-table-empty" class="p-6 text-center text-sm text-secondary">
+                No VMs found. Create one to get started.
+            </div>
+        </div>
+    </div>
+
+    </div><!-- /tab-vms -->
+
+    <!-- Images Tab -->
+    <div id="tab-images" class="hidden">
+        <div id="images-loading" class="mt-4 p-8 text-center surface rounded-lg hidden">
+            <div class="spinner h-7 w-7 mx-auto"></div>
+            <p class="mt-3 text-sm text-secondary">Loading images...</p>
+        </div>
+
+        <div id="images-empty" class="hidden mt-4 p-8 text-center surface rounded-lg">
+            <i class="fas fa-layer-group text-3xl text-secondary mb-3 block"></i>
+            <h3 class="text-sm font-medium text-emphasis">No images found</h3>
+            <p class="mt-1 text-xs text-secondary">Local Tart images and cached OCI images will appear here.</p>
+        </div>
+
+        <div id="images-section" class="mt-4 hidden">
+            <div class="surface rounded-lg" style="border-color: rgba(168, 85, 247, 0.2);">
+                <div style="padding: 12px 16px; border-bottom: 1px solid var(--border);" class="flex items-center gap-3">
+                    <i class="fas fa-layer-group" style="color: #c084fc;"></i>
+                    <span class="text-sm font-medium text-emphasis">Tart Images</span>
+                    <span class="text-xs text-secondary">(source images + OCI cache)</span>
+                </div>
+                <div id="images-table" class="hidden overflow-x-auto">
+                    <table class="dark-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 22%;">Name</th>
+                                <th style="width: 70px;">Source</th>
+                                <th style="width: 70px;">OS</th>
+                                <th style="width: 80px;">Disk</th>
+                                <th style="width: 80px;">Size</th>
+                                <th>Used By</th>
+                                <th style="width: 140px;">Last Accessed</th>
+                            </tr>
+                        </thead>
+                        <tbody id="images-list"></tbody>
+                    </table>
+                </div>
+                <div id="images-table-empty" class="p-6 text-center text-sm text-secondary">
+                    No images found.
+                </div>
+            </div>
+        </div>
+    </div><!-- /tab-images -->
+
+    <!-- Pipeline Tab -->
+    <div id="tab-pipeline" class="hidden">
+        <div id="pipeline-loading" class="mt-4 p-8 text-center surface rounded-lg hidden">
+            <div class="spinner h-7 w-7 mx-auto"></div>
+            <p class="mt-3 text-sm text-secondary">Loading pipeline data...</p>
+        </div>
+
+        <div id="pipeline-error" class="hidden mt-4 p-8 text-center surface rounded-lg">
+            <i class="fas fa-plug text-3xl text-secondary mb-3 block"></i>
+            <h3 class="text-sm font-medium text-emphasis">Pipeline Controller Unreachable</h3>
+            <p class="mt-1 text-xs text-secondary">Cannot connect to the pipeline controller.</p>
+        </div>
+
+        <div id="pipeline-content" class="hidden">
+            <!-- Stuck Runs Banner -->
+            <div id="pipeline-stuck-banner" class="hidden mt-4 pipeline-stuck-banner">
+                <div class="flex items-center gap-2 mb-2">
+                    <i class="fas fa-exclamation-triangle" style="color: #fde047; font-size: 12px;"></i>
+                    <span class="text-xs font-medium" style="color: #fde047;">Stuck Runs Detected</span>
+                </div>
+                <div id="pipeline-stuck-list" class="text-xs text-secondary"></div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div id="pipeline-stats" class="mt-4 pipeline-stats"></div>
+
+            <!-- Runs Table -->
+            <div class="mt-4 surface rounded-lg" style="border-color: rgba(59, 130, 246, 0.2);">
+                <div style="padding: 12px 16px; border-bottom: 1px solid var(--border);" class="flex items-center gap-3">
+                    <i class="fas fa-code-branch" style="color: #60a5fa;"></i>
+                    <span class="text-sm font-medium text-emphasis">Pipeline Runs</span>
+                    <span id="pipeline-runs-count" class="text-xs text-secondary"></span>
+                </div>
+                <div id="pipeline-runs-table" class="overflow-x-auto">
+                    <table class="dark-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30px;"></th>
+                                <th>Issue</th>
+                                <th>Project</th>
+                                <th style="width: 140px;">State</th>
+                                <th>Branch</th>
+                                <th style="width: 60px;">PR</th>
+                                <th style="width: 140px;">Started</th>
+                                <th style="width: 100px;">Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pipeline-runs-list"></tbody>
+                    </table>
+                </div>
+                <div id="pipeline-runs-empty" class="p-6 text-center text-sm text-secondary">
+                    No pipeline runs found.
+                </div>
+            </div>
+
+            <!-- Controller Health -->
+            <div class="mt-4 surface rounded-lg">
+                <div style="padding: 12px 16px; border-bottom: 1px solid var(--border);" class="flex items-center gap-3">
+                    <i class="fas fa-heartbeat" style="color: #4ade80;"></i>
+                    <span class="text-sm font-medium text-emphasis">Controller Health</span>
+                </div>
+                <div id="pipeline-health" style="padding: 12px 16px;" class="text-xs text-secondary">
+                    Checking...
+                </div>
+            </div>
+        </div>
+    </div><!-- /tab-pipeline -->
+
+</div>
+
+<!-- Pull VM Modal -->
+<!-- Settings Modal -->
+<div id="settings-modal" class="fixed z-10 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 modal-backdrop" aria-hidden="true"></div>
+        <div class="relative modal-dialog w-full max-w-lg">
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="flex items-center justify-center w-8 h-8 rounded" style="background: rgba(255, 255, 255, 0.06);">
+                        <i class="fas fa-cog text-secondary" style="font-size: 13px;"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-emphasis">Settings</h3>
+                </div>
+
+                <div class="mb-4" style="border-bottom: 1px solid var(--border); padding-bottom: 16px;">
+                    <h4 class="text-xs font-medium text-emphasis mb-2">GitHub API Token</h4>
+                    <p class="text-xs text-secondary mb-3">
+                        A GitHub personal access token is <strong class="text-tertiary">required</strong> to fetch the latest available macOS images from Cirrus Labs dynamically.
+                        <a href="https://github.com/settings/tokens" target="_blank" class="accent-link">
+                            Create token <i class="fas fa-external-link-alt text-xs ml-0.5"></i>
+                        </a>
+                    </p>
+                    <div class="mb-3">
+                        <label for="github-token" class="label block mb-1">Personal Access Token</label>
+                        <input type="password" id="github-token" class="input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                        <p class="mt-1 text-xs text-secondary">Required scope: <code>read:packages</code></p>
+                    </div>
+                    <div id="token-status" class="hidden"></div>
+                </div>
+            </div>
+            <div class="modal-footer px-6 py-3 flex justify-end gap-2">
+                <button type="button" id="settings-cancel-btn" class="icon-btn icon-btn-neutral" data-tooltip="Cancel">
+                    <i class="fas fa-times" style="font-size: 11px;"></i>
+                </button>
+                <button type="button" id="settings-clear-btn" class="icon-btn icon-btn-red" data-tooltip="Clear Token">
+                    <i class="fas fa-trash" style="font-size: 11px;"></i>
+                </button>
+                <button type="button" id="settings-save-btn" class="icon-btn icon-btn-green" data-tooltip="Save">
+                    <i class="fas fa-check" style="font-size: 11px;"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create VM Modal -->
+<div id="create-vm-modal" class="fixed z-10 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 modal-backdrop" aria-hidden="true"></div>
+        <div class="relative modal-dialog w-full max-w-lg">
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="flex items-center justify-center w-8 h-8 rounded" style="background: rgba(34, 197, 94, 0.15);">
+                        <i class="fas fa-plus" style="color: #4ade80; font-size: 13px;"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-emphasis">Create VM</h3>
+                </div>
+
+                <div class="mb-4">
+                    <label for="create-vm-name" class="label block mb-1">VM Name</label>
+                    <input type="text" id="create-vm-name" class="input" placeholder="my-vm">
+                </div>
+
+                <div class="mb-4">
+                    <label for="create-vm-image" class="label block mb-1">OCI Image</label>
+                    <input type="text" id="create-vm-image" class="input" value="ghcr.io/cirruslabs/ubuntu:latest" placeholder="ghcr.io/cirruslabs/ubuntu:latest">
+                    <p class="mt-1 text-xs text-secondary">OCI image URL — will be pulled by Tart on the target worker</p>
+                </div>
+
+                <div class="mb-4">
+                    <label for="create-vm-worker" class="label block mb-1">Target Worker</label>
+                    <select id="create-vm-worker" class="select"></select>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label for="create-vm-cpu" class="label block mb-1">CPU Cores</label>
+                        <input type="number" id="create-vm-cpu" class="input" value="4" min="1" max="32">
+                    </div>
+                    <div>
+                        <label for="create-vm-memory" class="label block mb-1">Memory (MB)</label>
+                        <input type="number" id="create-vm-memory" class="input" value="8192" min="512" step="512">
+                    </div>
+                    <div>
+                        <label for="create-vm-disk" class="label block mb-1">Disk (GB)</label>
+                        <input type="number" id="create-vm-disk" class="input" value="50" min="20" max="500">
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="create-vm-startup" class="label block mb-1">Startup Script (optional)</label>
+                    <textarea id="create-vm-startup" class="input" rows="3" placeholder="#!/bin/bash&#10;# Commands to run after VM boots..."></textarea>
+                    <p class="mt-1 text-xs text-secondary">Shell commands to run inside the VM after creation (e.g. install packages, register Tailscale)</p>
+                </div>
+            </div>
+            <div class="modal-footer px-6 py-3 flex justify-end gap-2">
+                <button type="button" id="create-vm-cancel-btn" class="icon-btn icon-btn-neutral" data-tooltip="Cancel">
+                    <i class="fas fa-times" style="font-size: 11px;"></i>
+                </button>
+                <button type="button" id="create-vm-confirm-btn" class="icon-btn icon-btn-green" data-tooltip="Generate Prompt">
+                    <i class="fas fa-clipboard" style="font-size: 11px;"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Worker Modal -->
+<div id="create-worker-modal" class="fixed z-10 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 modal-backdrop" aria-hidden="true"></div>
+        <div class="relative modal-dialog w-full max-w-lg">
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="flex items-center justify-center w-8 h-8 rounded" style="background: rgba(59, 130, 246, 0.15);">
+                        <i class="fas fa-server" style="color: #60a5fa; font-size: 13px;"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-emphasis">Add Orchard Worker</h3>
+                </div>
+
+                <div class="mb-4">
+                    <label for="create-worker-name" class="label block mb-1">Worker Name</label>
+                    <input type="text" id="create-worker-name" class="input" placeholder="my-mac">
+                    <p class="mt-1 text-xs text-secondary">Hostname of the machine to register as an Orchard worker</p>
+                </div>
+
+                <div class="mb-4">
+                    <label for="create-worker-controller" class="label block mb-1">Orchard Controller URL</label>
+                    <input type="text" id="create-worker-controller" class="input" placeholder="http://controller-host:6120">
+                </div>
+            </div>
+            <div class="modal-footer px-6 py-3 flex justify-end gap-2">
+                <button type="button" id="create-worker-cancel-btn" class="icon-btn icon-btn-neutral" data-tooltip="Cancel">
+                    <i class="fas fa-times" style="font-size: 11px;"></i>
+                </button>
+                <button type="button" id="create-worker-confirm-btn" class="icon-btn icon-btn-blue" data-tooltip="Generate Prompt">
+                    <i class="fas fa-clipboard" style="font-size: 11px;"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Prompt Output Modal -->
+<div id="prompt-modal" class="fixed z-10 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 modal-backdrop" aria-hidden="true"></div>
+        <div class="relative modal-dialog w-full max-w-3xl">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-8 h-8 rounded" style="background: rgba(168, 85, 247, 0.15);">
+                            <i class="fas fa-terminal" style="color: #c084fc; font-size: 13px;"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-emphasis" id="prompt-title">Agent Prompt</h3>
+                    </div>
+                    <span id="prompt-copied-badge" class="badge badge-green hidden" style="font-size: 10px;">Copied!</span>
+                </div>
+                <div id="prompt-output" class="log-terminal text-xs p-4 rounded overflow-y-auto" style="max-height: 60vh; white-space: pre-wrap; color: var(--text-primary); user-select: all;"></div>
+            </div>
+            <div class="modal-footer px-6 py-3 flex justify-end gap-2">
+                <button type="button" id="prompt-close-btn" class="icon-btn icon-btn-neutral" data-tooltip="Close">
+                    <i class="fas fa-times" style="font-size: 11px;"></i>
+                </button>
+                <button type="button" id="prompt-copy-btn" class="icon-btn icon-btn-purple" data-tooltip="Copy to Clipboard">
+                    <i class="fas fa-copy" style="font-size: 11px;"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Agent Login Modal -->
+<div id="agent-login-modal" class="fixed z-10 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 modal-backdrop" aria-hidden="true"></div>
+        <div class="relative modal-dialog w-full max-w-3xl">
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="flex items-center justify-center w-8 h-8 rounded" style="background: rgba(168, 85, 247, 0.15);">
+                        <i class="fas fa-key" style="color: #c084fc; font-size: 13px;"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-emphasis" id="agent-login-title">Agent Login</h3>
+                    <div id="agent-login-status" class="badge hidden"></div>
+                </div>
+                <!-- Agent selection -->
+                <div id="agent-select-panel">
+                    <p class="text-xs text-secondary mb-3">Select a coding agent (auto-installs if missing):</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="surface rounded-lg p-3 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-medium text-emphasis">Claude Code</span>
+                                <span class="text-xs text-secondary block mt-1 font-mono">claude auth login</span>
+                            </div>
+                            <div class="flex gap-1">
+                                <button class="icon-btn icon-btn-purple" data-tooltip="Login" onclick="startAgentLogin(agentLoginVmName, 'claude', 'login')">
+                                    <i class="fas fa-sign-in-alt" style="font-size: 11px;"></i>
+                                </button>
+                                <button class="icon-btn icon-btn-blue" data-tooltip="Test" onclick="startAgentLogin(agentLoginVmName, 'claude', 'test')">
+                                    <i class="fas fa-vial" style="font-size: 11px;"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="surface rounded-lg p-3 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-medium text-emphasis">Codex</span>
+                                <span class="text-xs text-secondary block mt-1 font-mono">codex auth login</span>
+                            </div>
+                            <div class="flex gap-1">
+                                <button class="icon-btn icon-btn-purple" data-tooltip="Login" onclick="startAgentLogin(agentLoginVmName, 'codex', 'login')">
+                                    <i class="fas fa-sign-in-alt" style="font-size: 11px;"></i>
+                                </button>
+                                <button class="icon-btn icon-btn-blue" data-tooltip="Test" onclick="startAgentLogin(agentLoginVmName, 'codex', 'test')">
+                                    <i class="fas fa-vial" style="font-size: 11px;"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="surface rounded-lg p-3 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-medium text-emphasis">Gemini CLI</span>
+                                <span class="text-xs text-secondary block mt-1 font-mono">gemini auth login</span>
+                            </div>
+                            <div class="flex gap-1">
+                                <button class="icon-btn icon-btn-purple" data-tooltip="Login" onclick="startAgentLogin(agentLoginVmName, 'gemini', 'login')">
+                                    <i class="fas fa-sign-in-alt" style="font-size: 11px;"></i>
+                                </button>
+                                <button class="icon-btn icon-btn-blue" data-tooltip="Test" onclick="startAgentLogin(agentLoginVmName, 'gemini', 'test')">
+                                    <i class="fas fa-vial" style="font-size: 11px;"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="surface rounded-lg p-3 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-medium text-emphasis">GitHub Copilot</span>
+                                <span class="text-xs text-secondary block mt-1 font-mono">gh auth login --web</span>
+                            </div>
+                            <div class="flex gap-1">
+                                <button class="icon-btn icon-btn-purple" data-tooltip="Login" onclick="startAgentLogin(agentLoginVmName, 'copilot', 'login')">
+                                    <i class="fas fa-sign-in-alt" style="font-size: 11px;"></i>
+                                </button>
+                                <button class="icon-btn icon-btn-blue" data-tooltip="Test" onclick="startAgentLogin(agentLoginVmName, 'copilot', 'test')">
+                                    <i class="fas fa-vial" style="font-size: 11px;"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Terminal output -->
+                <div id="agent-login-terminal" class="hidden">
+                    <div id="agent-login-output" class="log-terminal text-xs p-4 rounded overflow-y-auto log-container" style="white-space: pre-wrap; height: 60vh;"></div>
+                    <div id="agent-login-input-row" class="mt-2 flex gap-2">
+                        <input type="text" id="agent-login-input" class="input flex-1 font-mono text-xs" placeholder="Type input and press Enter...">
+                        <button id="agent-login-send-btn" class="icon-btn icon-btn-blue" data-tooltip="Send" onclick="sendAgentLoginInput()">
+                            <i class="fas fa-paper-plane" style="font-size: 11px;"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer px-6 py-3 flex justify-end">
+                <button type="button" id="agent-login-close-btn" class="icon-btn icon-btn-neutral" data-tooltip="Close">
+                    <i class="fas fa-times" style="font-size: 11px;"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Task Logs Modal -->
+<div id="task-logs-modal" class="fixed z-10 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 modal-backdrop" aria-hidden="true"></div>
+        <div class="relative modal-dialog w-full max-w-4xl">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-sm font-semibold text-emphasis" id="task-title">Task Logs</h3>
+                    <div id="task-status" class="badge"></div>
+                </div>
+                <div id="task-logs" class="log-terminal text-xs p-4 rounded h-96 overflow-y-auto log-container">
+                    <div class="text-secondary">Waiting for logs...</div>
+                </div>
+            </div>
+            <div class="modal-footer px-6 py-3 flex justify-end">
+                <button type="button" id="close-logs-btn" class="icon-btn icon-btn-neutral" data-tooltip="Close">
+                    <i class="fas fa-times" style="font-size: 11px;"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Global variables
+    let currentTaskId = null;
+    let taskSocket = null;
+    let lastVMs = null;
+    let lastImages = null;
+    let servicesMap = {};
+    let servicesLoaded = false;
+    let tailscalePeers = {};
+    let tailscaleLoaded = false;
+    let hostsData = [];
+    let vmFilters = { type: 'all', os: 'all', worker: 'all' };
+    let activeTab = 'vms';
+
+    const nameColors = { 'claw-': '#22d3ee', 'infra-': '#f472b6' };
+
+    let eventSource = null;
+
+    const ACTIVE_TASKS_REFRESH_MS = 3000;
+    let activeTasksTimer = null;
+    let activeTasksInFlight = false;
+
+    // DOM elements
+    const vmsLoading = document.getElementById('vms-loading');
+    const vmsEmpty = document.getElementById('vms-empty');
+
+    const vmsSection = document.getElementById('vms-section');
+    const vmsTable = document.getElementById('vms-table');
+    const vmsList = document.getElementById('vms-list');
+    const vmsTableEmpty = document.getElementById('vms-table-empty');
+
+    const activeTasksPanel = document.getElementById('active-tasks-panel');
+    const activeTasksList = document.getElementById('active-tasks-list');
+    const activeTasksCount = document.getElementById('active-tasks-count');
+
+    const settingsModal = document.getElementById('settings-modal');
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsSaveBtn = document.getElementById('settings-save-btn');
+    const settingsClearBtn = document.getElementById('settings-clear-btn');
+    const settingsCancelBtn = document.getElementById('settings-cancel-btn');
+    const githubTokenInput = document.getElementById('github-token');
+    const tokenStatus = document.getElementById('token-status');
+
+    const taskLogsModal = document.getElementById('task-logs-modal');
+    const taskTitle = document.getElementById('task-title');
+    const taskStatusEl = document.getElementById('task-status');
+    const taskLogs = document.getElementById('task-logs');
+    const closeLogsBtn = document.getElementById('close-logs-btn');
+
+    const createVmModal = document.getElementById('create-vm-modal');
+    const createVmBtn = document.getElementById('create-vm-btn');
+    const createVmConfirmBtn = document.getElementById('create-vm-confirm-btn');
+    const createVmCancelBtn = document.getElementById('create-vm-cancel-btn');
+    const createVmImageInput = document.getElementById('create-vm-image');
+    const createVmNameInput = document.getElementById('create-vm-name');
+    const createVmWorkerSelect = document.getElementById('create-vm-worker');
+    const createVmCpuInput = document.getElementById('create-vm-cpu');
+    const createVmMemoryInput = document.getElementById('create-vm-memory');
+    const createVmDiskInput = document.getElementById('create-vm-disk');
+    const createVmStartupInput = document.getElementById('create-vm-startup');
+
+    const createWorkerModal = document.getElementById('create-worker-modal');
+    const createWorkerBtn = document.getElementById('create-worker-btn');
+    const createWorkerConfirmBtn = document.getElementById('create-worker-confirm-btn');
+    const createWorkerCancelBtn = document.getElementById('create-worker-cancel-btn');
+    const createWorkerNameInput = document.getElementById('create-worker-name');
+    const createWorkerControllerInput = document.getElementById('create-worker-controller');
+
+    const promptModal = document.getElementById('prompt-modal');
+    const promptOutput = document.getElementById('prompt-output');
+    const promptTitle = document.getElementById('prompt-title');
+    const promptCopyBtn = document.getElementById('prompt-copy-btn');
+    const promptCloseBtn = document.getElementById('prompt-close-btn');
+    const promptCopiedBadge = document.getElementById('prompt-copied-badge');
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        // Tab switching
+        document.querySelectorAll('.tab[data-tab]').forEach(tab => {
+            tab.addEventListener('click', () => {
+                activeTab = tab.dataset.tab;
+                document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('tab-vms').classList.toggle('hidden', activeTab !== 'vms');
+                document.getElementById('tab-images').classList.toggle('hidden', activeTab !== 'images');
+                document.getElementById('tab-pipeline').classList.toggle('hidden', activeTab !== 'pipeline');
+                if (activeTab === 'pipeline') {
+                    loadPipelineData();
+                    startPipelinePolling();
+                } else {
+                    stopPipelinePolling();
+                }
+            });
+        });
+
+        loadServices();
+        loadTailscalePeers();
+        connectEventSource();
+
+        startActiveTasksPolling();
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopActiveTasksPolling();
+                stopPipelinePolling();
+            } else {
+                startActiveTasksPolling();
+                refreshActiveTasks();
+                if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
+                    connectEventSource();
+                }
+                if (activeTab === 'pipeline') {
+                    loadPipelineData();
+                    startPipelinePolling();
+                }
+            }
+        });
+
+        document.getElementById('refresh-btn').addEventListener('click', loadVMs);
+
+        // Custom filter dropdowns
+        document.querySelectorAll('.vm-filter-trigger').forEach(trigger => {
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const menu = trigger.nextElementSibling;
+                const wasOpen = !menu.classList.contains('hidden');
+                document.querySelectorAll('.vm-filter-menu').forEach(m => m.classList.add('hidden'));
+                if (!wasOpen) menu.classList.remove('hidden');
+            });
+        });
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.vm-filter-menu').forEach(m => m.classList.add('hidden'));
+        });
+        document.querySelectorAll('.vm-filter-menu').forEach(menu => {
+            menu.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const opt = e.target.closest('.vm-filter-option');
+                if (!opt) return;
+                const dropdown = menu.closest('.vm-filter-dropdown');
+                const group = dropdown.dataset.filterGroup;
+                vmFilters[group] = opt.dataset.value;
+                menu.querySelectorAll('.vm-filter-option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                menu.classList.add('hidden');
+                // Update trigger label if filtered
+                const label = dropdown.querySelector('.vm-filter-label');
+                const isFiltered = opt.dataset.value !== 'all';
+                label.textContent = isFiltered ? opt.textContent.trim() : group.charAt(0).toUpperCase() + group.slice(1);
+                dropdown.classList.toggle('is-filtered', isFiltered);
+                if (lastVMs) renderVMs(lastVMs);
+            });
+        });
+
+        document.body.addEventListener('click', (e) => {
+            const button = e.target.closest('button[data-action]');
+            if (!button || button.disabled) return;
+
+            const action = button.getAttribute('data-action');
+            const vmElement = button.closest('[data-vm]');
+            if (!vmElement) return;
+
+            const vmName = vmElement.dataset.vm;
+            if (vmName && action) {
+                // Show spinner on the button for start/stop/restart
+                if (['start', 'stop', 'restart'].includes(action)) {
+                    const icon = button.querySelector('i');
+                    if (icon) {
+                        icon.className = 'fas fa-spinner fa-spin';
+                        icon.style.fontSize = '11px';
+                    }
+                    button.disabled = true;
+                }
+                handleVmAction(vmName, action);
+            }
+        });
+
+        settingsBtn.addEventListener('click', () => {
+            showModal(settingsModal);
+            loadGitHubTokenStatus();
+        });
+        settingsCancelBtn.addEventListener('click', () => hideModal(settingsModal));
+        settingsSaveBtn.addEventListener('click', handleSaveGitHubToken);
+        settingsClearBtn.addEventListener('click', handleClearGitHubToken);
+
+        createVmBtn.addEventListener('click', () => {
+            createVmNameInput.value = '';
+            createVmImageInput.value = 'ghcr.io/cirruslabs/ubuntu:latest';
+            createVmCpuInput.value = '4';
+            createVmMemoryInput.value = '8192';
+            createVmDiskInput.value = '50';
+            createVmStartupInput.value = '';
+            populateWorkerSelect();
+            showModal(createVmModal);
+        });
+        createVmCancelBtn.addEventListener('click', () => hideModal(createVmModal));
+        createVmConfirmBtn.addEventListener('click', handleCreateVm);
+
+        createWorkerBtn.addEventListener('click', () => {
+            createWorkerNameInput.value = '';
+            createWorkerControllerInput.value = window.location.protocol + '//' + window.location.hostname + ':6120';
+            showModal(createWorkerModal);
+        });
+        createWorkerCancelBtn.addEventListener('click', () => hideModal(createWorkerModal));
+        createWorkerConfirmBtn.addEventListener('click', handleCreateWorker);
+
+        promptCloseBtn.addEventListener('click', () => hideModal(promptModal));
+        promptCopyBtn.addEventListener('click', handleCopyPrompt);
+
+        closeLogsBtn.addEventListener('click', () => {
+            hideModal(taskLogsModal);
+            if (taskSocket) { taskSocket.close(); taskSocket = null; }
+            loadVMsCached();
+            refreshActiveTasks();
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-backdrop')) {
+                const modal = e.target.closest('[role="dialog"]');
+                if (modal) {
+                    hideModal(modal);
+                    if (modal === taskLogsModal && taskSocket) {
+                        taskSocket.close(); taskSocket = null;
+                        loadVMsCached(); refreshActiveTasks();
+                    }
+                    if (modal === agentLoginModal) closeAgentLogin();
+                }
+            }
+        });
+    });
+
+    async function loadServices() {
+        try {
+            servicesMap = await api.get('/api/services');
+        } catch (e) {
+            console.warn('Failed to load services:', e);
+        } finally {
+            servicesLoaded = true;
+            if (lastVMs) renderVMs(lastVMs);
+        }
+    }
+
+    function renderHosts(hosts) {
+        hostsData = hosts || [];
+        const panel = document.getElementById('hosts-panel');
+        const list = document.getElementById('hosts-list');
+
+        if (!hosts || hosts.length === 0) {
+            panel.classList.add('hidden');
+            return;
+        }
+
+        panel.classList.remove('hidden');
+        const hostColors = { ddstudio: '#a78bfa', ddmini: '#38bdf8' };
+        list.innerHTML = hosts.map(h => {
+            const memGb = h.memory_mb ? Math.round(h.memory_mb / 1024) : '?';
+            const isOnline = h.last_seen && (Date.now() - new Date(h.last_seen).getTime()) < 60000;
+            const ipDisplay = h.ip ? ` <span class="font-mono text-secondary">(${escapeHtml(h.ip)})</span>` : '';
+            const hColor = hostColors[h.name] || '#94a3b8';
+
+            return `
+                <div class="flex items-center justify-between host-row" style="padding: 6px 0;">
+                    <div class="flex items-center gap-3">
+                        <span class="status-${isOnline ? 'running' : 'stopped'}" style="display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">
+                            <i class="fas ${isOnline ? 'fa-wifi' : 'fa-plug-circle-xmark'}" style="font-size: 8px;"></i>${isOnline ? 'Online' : 'Offline'}
+                        </span>
+                        <span class="text-xs font-medium" style="color: ${hColor};">${escapeHtml(h.name)}${ipDisplay}</span>
+                    </div>
+                    <div class="flex items-center gap-4 text-xs text-secondary host-stats">
+                        <span><i class="fas fa-microchip mr-1" style="font-size: 10px;"></i>${h.cores || '?'} cores</span>
+                        <span><i class="fas fa-memory mr-1" style="font-size: 10px;"></i>${memGb} GB</span>
+                        <span><i class="fas fa-cube mr-1" style="font-size: 10px;"></i>${h.vm_slots || '?'} VM slots</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function connectEventSource() {
+        if (eventSource) {
+            eventSource.close();
+        }
+        const token = encodeURIComponent(window.API_TOKEN || '');
+        eventSource = new EventSource(`/api/events?token=${token}`);
+        eventSource.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                hideLoading();
+                if (data.vms) {
+                    lastVMs = data.vms;
+                    renderVMs(data.vms);
+                }
+                if (data.hosts) {
+                    renderHosts(data.hosts);
+                }
+                if (data.images) {
+                    lastImages = data.images;
+                    renderImages(data.images);
+                }
+            } catch (err) {
+                console.warn('SSE parse error:', err);
+            }
+        };
+        eventSource.onerror = () => {
+            eventSource.close();
+            eventSource = null;
+            // Reconnect after 5s
+            setTimeout(() => {
+                if (!document.hidden) connectEventSource();
+            }, 5000);
+        };
+    }
+
+    function startActiveTasksPolling() {
+        if (activeTasksTimer) return;
+        refreshActiveTasks();
+        activeTasksTimer = window.setInterval(() => {
+            if (document.hidden) return;
+            refreshActiveTasks();
+        }, ACTIVE_TASKS_REFRESH_MS);
+    }
+
+    function stopActiveTasksPolling() {
+        if (!activeTasksTimer) return;
+        window.clearInterval(activeTasksTimer);
+        activeTasksTimer = null;
+    }
+
+    async function refreshActiveTasks() {
+        if (activeTasksInFlight) return;
+        activeTasksInFlight = true;
+        try {
+            const tasks = await api.get('/api/tasks/active');
+            renderActiveTasks(tasks);
+        } catch (error) {
+            console.warn('Failed to fetch active tasks:', error);
+        } finally {
+            activeTasksInFlight = false;
+        }
+    }
+
+    function renderActiveTasks(tasks) {
+        if (!tasks || tasks.length === 0) {
+            activeTasksPanel.classList.add('hidden');
+            return;
+        }
+
+        activeTasksPanel.classList.remove('hidden');
+        activeTasksCount.textContent = tasks.length;
+
+        activeTasksList.innerHTML = tasks.map(task => {
+            const actionText = formatTaskAction(task);
+            const timeAgo = formatTimeAgo(task.created_at);
+            const lastLog = task.logs && task.logs.length > 0
+                ? task.logs[task.logs.length - 1]
+                : 'Starting...';
+
+            const accentColor = task.status === 'running'
+                ? 'rgba(59, 130, 246, 0.1)'
+                : 'rgba(234, 179, 8, 0.1)';
+            const borderColor = task.status === 'running'
+                ? 'rgba(59, 130, 246, 0.2)'
+                : 'rgba(234, 179, 8, 0.2)';
+            const spinColor = task.status === 'running'
+                ? '#3b82f6'
+                : '#eab308';
+
+            return `
+                <div style="background: ${accentColor}; border: 1px solid ${borderColor}; border-radius: 6px; padding: 10px 12px;">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <div class="spinner" style="width: 14px; height: 14px; border-top-color: ${spinColor};"></div>
+                                <span class="text-xs font-medium text-emphasis">${escapeHtml(actionText)}</span>
+                            </div>
+                            <div class="text-xs text-secondary mt-1">Started ${timeAgo}</div>
+                            ${lastLog ? `
+                                <div class="text-xs text-secondary mt-2 font-mono truncate" style="background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 3px;">
+                                    ${escapeHtml(lastLog)}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <button onclick="showTaskLogs('${task.id}', '${escapeHtml(actionText)}')"
+                                class="ml-3 flex-shrink-0 accent-link text-xs font-medium" style="background: none; border: none; cursor: pointer;">
+                            View Logs
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function formatTaskAction(task) {
+        const action = task.action || 'task';
+        switch (action) {
+            case 'create_vm': return 'Creating VM';
+            case 'destroy_vm': return 'Destroying VM';
+            default: return action;
+        }
+    }
+
+    function formatTimeAgo(timestamp) {
+        const now = Date.now() / 1000;
+        const diff = now - timestamp;
+        if (diff < 60) return `${Math.floor(diff)}s ago`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        return `${Math.floor(diff / 86400)}d ago`;
+    }
+
+    async function loadVMsCached() {
+        try {
+            showLoading();
+            const vms = await api.get('/api/vms');
+            lastVMs = vms;
+            renderVMs(vms);
+        } catch (error) {
+            console.error('Error loading VMs:', error);
+            showToast('Failed to load VMs', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async function loadVMs() {
+        try {
+            showLoading();
+            const vms = await api.post('/api/vms/refresh', {});
+            lastVMs = vms;
+            renderVMs(vms);
+        } catch (error) {
+            console.error('Error loading VMs:', error);
+            showToast('Failed to load VMs', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async function loadTailscalePeers() {
+        try {
+            tailscalePeers = await api.get('/api/tailscale/peers');
+        } catch (e) {
+            console.warn('Failed to load Tailscale peers:', e);
+        } finally {
+            tailscaleLoaded = true;
+            if (lastVMs) renderVMs(lastVMs);
+        }
+    }
+
+    function findVmTailscaleIp(vmName) {
+        // Try exact match, then with -vm suffix
+        if (tailscalePeers[vmName]) return tailscalePeers[vmName];
+        if (tailscalePeers[vmName + '-vm']) return tailscalePeers[vmName + '-vm'];
+        // Check if any peer name contains the VM name
+        for (const [hostname, ip] of Object.entries(tailscalePeers)) {
+            if (hostname.includes(vmName) || vmName.includes(hostname)) return ip;
+        }
+        return null;
+    }
+
+    function renderVMs(vms) {
+        if (!vms || vms.length === 0) {
+            vmsSection.classList.add('hidden');
+            vmsEmpty.classList.remove('hidden');
+            return;
+        }
+
+        vmsEmpty.classList.add('hidden');
+        vmsSection.classList.remove('hidden');
+
+        vmsList.innerHTML = '';
+        // Update worker filter options dynamically
+        const workers = [...new Set(vms.map(vm => vm.worker).filter(Boolean))].sort();
+        const workerMenu = document.getElementById('filter-worker-menu');
+        const existingWorkers = [...workerMenu.querySelectorAll('.vm-filter-option:not([data-value="all"])')].map(o => o.dataset.value);
+        if (workers.join() !== existingWorkers.join()) {
+            const saved = vmFilters.worker;
+            workerMenu.innerHTML = '<button class="vm-filter-option selected" data-value="all"><i class="fas fa-check"></i>All</button>';
+            workers.forEach(w => {
+                const btn = document.createElement('button');
+                btn.className = 'vm-filter-option' + (saved === w ? ' selected' : '');
+                btn.dataset.value = w;
+                btn.innerHTML = '<i class="fas fa-check"></i>' + escapeHtml(w);
+                workerMenu.appendChild(btn);
+            });
+            if (saved !== 'all' && !workers.includes(saved)) {
+                vmFilters.worker = 'all';
+                workerMenu.querySelector('[data-value="all"]').classList.add('selected');
+            }
+        }
+
+        const filtered = vms.filter(vm => {
+            if (vmFilters.type !== 'all' && !vm.name.startsWith(vmFilters.type + '-')) return false;
+            if (vmFilters.os !== 'all' && vm.os !== vmFilters.os) return false;
+            if (vmFilters.worker !== 'all' && vm.worker !== vmFilters.worker) return false;
+            return true;
+        });
+        filtered.forEach(vm => {
+            const row = document.createElement('tr');
+            row.dataset.vm = vm.name;
+
+            const statusBadge = getStatusBadge(vm);
+
+            const services = servicesMap[vm.name] || [];
+            let urlsHtml;
+            if (!servicesLoaded) {
+                urlsHtml = '<div class="spinner" style="width: 14px; height: 14px; border-width: 2px;"></div>';
+            } else if (services.length > 0) {
+                urlsHtml = `<span class="td-value">${services.map(s => `<a class="accent-link text-xs" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.url)}</a>`).join('<br>')}</span>`;
+            } else {
+                urlsHtml = '<span class="text-secondary text-xs">—</span>';
+            }
+
+            const memDisplay = vm.memory ? (vm.memory >= 1024 ? `${Math.round(vm.memory / 1024)}G` : `${vm.memory}M`) : '<span class="text-secondary">—</span>';
+
+            // Worker with IP + color
+            const workerColors = { ddstudio: '#a78bfa', ddmini: '#38bdf8' };
+            let workerHtml = '<span class="text-secondary">—</span>';
+            if (vm.worker) {
+                const workerHost = hostsData.find(h => h.name === vm.worker);
+                const workerIp = workerHost?.ip;
+                const wColor = workerColors[vm.worker] || '#94a3b8';
+                workerHtml = `<span class="td-value">${`<span style="color: ${wColor};">${escapeHtml(vm.worker)}</span>` + (workerIp ? `<br><span class="text-secondary font-mono">(${escapeHtml(workerIp)})</span>` : '')}</span>`;
+            }
+
+            // Tailscale IP
+            const tsIp = findVmTailscaleIp(vm.name);
+            const tsIpHtml = !tailscaleLoaded
+                ? '<div class="spinner" style="width: 14px; height: 14px; border-width: 2px;"></div>'
+                : (tsIp ? `<span class="font-mono">${escapeHtml(tsIp)}</span>` : '<span class="text-secondary">—</span>');
+
+            const isRunning = vm.status === 'running';
+            const isStopped = vm.status === 'stopped';
+
+            row.innerHTML = `
+                <td data-label="Name"><span class="font-medium" style="word-break: break-all; color: ${Object.entries(nameColors).find(([p]) => vm.name.startsWith(p))?.[1] || 'var(--text-emphasis)'};">${escapeHtml(vm.name)}</span></td>
+                <td data-label="Status">${statusBadge}</td>
+                <td data-label="OS" class="text-xs"><span style="display: inline-flex; align-items: center; gap: 6px; color: ${vm.os === 'macOS' ? '#e2e8f0' : '#fb923c'};">${vm.os ? (vm.os === 'macOS' ? '<i class="fab fa-apple"></i>' : '<i class="fab fa-linux"></i>') + escapeHtml(vm.os) : '<span class="text-secondary">—</span>'}</span></td>
+                <td data-label="Worker" class="text-xs">${workerHtml}</td>
+                <td data-label="Tailscale IP" class="text-xs">${tsIpHtml}</td>
+                <td data-label="URLs">${urlsHtml}</td>
+                <td data-label="CPU" class="text-xs">${vm.cpu || '<span class="text-secondary">—</span>'}</td>
+                <td data-label="Memory" class="text-xs">${memDisplay}</td>
+                <td data-label="Restart" class="text-xs">${vm.restart_policy || '<span class="text-secondary">—</span>'}</td>
+                <td data-label="Actions" style="text-align: right;">
+                    <div class="flex gap-1 justify-end">
+                        <button class="icon-btn icon-btn-green" data-tooltip="Start" data-action="start" ${isRunning ? 'disabled' : ''}>
+                            <i class="fas fa-play" style="font-size: 11px;"></i>
+                        </button>
+                        <button class="icon-btn icon-btn-orange" data-tooltip="Stop" data-action="stop" ${!isRunning ? 'disabled' : ''}>
+                            <i class="fas fa-stop" style="font-size: 11px;"></i>
+                        </button>
+                        <button class="icon-btn icon-btn-blue" data-tooltip="Restart" data-action="restart" ${!isRunning ? 'disabled' : ''}>
+                            <i class="fas fa-redo" style="font-size: 11px;"></i>
+                        </button>
+                        <button class="icon-btn icon-btn-purple" data-tooltip="Agent Login" data-action="agent-login" ${!isRunning ? 'disabled' : ''}>
+                            <i class="fas fa-key" style="font-size: 11px;"></i>
+                        </button>
+                        <button class="icon-btn icon-btn-red" data-tooltip="Destroy" data-action="destroy">
+                            <i class="fas fa-trash" style="font-size: 11px;"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            vmsList.appendChild(row);
+        });
+
+        vmsTableEmpty.classList.add('hidden');
+        vmsTable.classList.remove('hidden');
+    }
+
+    function renderImages(images) {
+        const section = document.getElementById('images-section');
+        const empty = document.getElementById('images-empty');
+        const loading = document.getElementById('images-loading');
+        const table = document.getElementById('images-table');
+        const tableEmpty = document.getElementById('images-table-empty');
+        const list = document.getElementById('images-list');
+
+        loading.classList.add('hidden');
+
+        if (!images || images.length === 0) {
+            section.classList.add('hidden');
+            empty.classList.remove('hidden');
+            return;
+        }
+
+        empty.classList.add('hidden');
+        section.classList.remove('hidden');
+
+        list.innerHTML = '';
+        images.forEach(img => {
+            const row = document.createElement('tr');
+
+            const sourceBadge = img.source === 'OCI'
+                ? '<span class="badge badge-indigo" style="font-size: 10px;">OCI</span>'
+                : '<span class="badge" style="font-size: 10px; background: rgba(255,255,255,0.06); color: var(--text-tertiary);">local</span>';
+
+            const osColor = img.os === 'macOS' ? '#e2e8f0' : '#fb923c';
+            const osIcon = img.os === 'macOS' ? '<i class="fab fa-apple"></i>' : '<i class="fab fa-linux"></i>';
+            const osHtml = img.os
+                ? `<span style="display: inline-flex; align-items: center; gap: 6px; color: ${osColor};">${osIcon}${escapeHtml(img.os)}</span>`
+                : '<span class="text-secondary">—</span>';
+
+            const usedByHtml = img.used_by && img.used_by.length > 0
+                ? img.used_by.map(vm => {
+                    const color = Object.entries(nameColors).find(([p]) => vm.startsWith(p))?.[1] || 'var(--text-primary)';
+                    return `<span style="color: ${color};">${escapeHtml(vm)}</span>`;
+                }).join(', ')
+                : '<span class="text-secondary">—</span>';
+
+            const accessed = img.last_accessed
+                ? new Date(img.last_accessed).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : '—';
+
+            const nameColor = Object.entries(nameColors).find(([p]) => img.name.startsWith(p))?.[1] || 'var(--text-emphasis)';
+
+            row.innerHTML = `
+                <td data-label="Name"><span class="font-medium" style="word-break: break-all; color: ${nameColor};">${escapeHtml(img.name)}</span></td>
+                <td data-label="Source">${sourceBadge}</td>
+                <td data-label="OS" class="text-xs">${osHtml}</td>
+                <td data-label="Disk" class="text-xs">${img.disk_size ? img.disk_size + ' GB' : '<span class="text-secondary">—</span>'}</td>
+                <td data-label="Size" class="text-xs">${img.size ? img.size + ' GB' : '<span class="text-secondary">—</span>'}</td>
+                <td data-label="Used By" class="text-xs">${usedByHtml}</td>
+                <td data-label="Accessed" class="text-xs text-secondary">${accessed}</td>
+            `;
+            list.appendChild(row);
+        });
+
+        tableEmpty.classList.add('hidden');
+        table.classList.remove('hidden');
+    }
+
+    function getStatusBadge(vm) {
+        const badges = {
+            running: '<span class="status-running" style="display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;"><i class="fas fa-play" style="font-size: 7px;"></i>Running</span>',
+            stopped: '<span class="status-stopped" style="display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;"><i class="fas fa-stop" style="font-size: 7px;"></i>Stopped</span>',
+            creating: '<span class="status-running" style="display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;"><i class="fas fa-spinner fa-spin" style="font-size: 7px;"></i>Creating</span>',
+            failed: '<span class="status-stopped" style="display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;"><i class="fas fa-exclamation-triangle" style="font-size: 7px;"></i>Failed</span>',
+        };
+        return badges[vm.status] || '<span class="status-unknown" style="display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;"><i class="fas fa-circle" style="font-size: 6px;"></i>Unknown</span>';
+    }
+
+    async function handleVmAction(vmName, action) {
+        const vm = lastVMs ? lastVMs.find(v => v.name === vmName) : null;
+
+        switch (action) {
+            case 'start':
+            case 'stop':
+            case 'restart': {
+                try {
+                    const enc = encodeURIComponent(vmName);
+                    const label = action.charAt(0).toUpperCase() + action.slice(1) + (action === 'stop' ? 'p' : '') + 'ing';
+                    let task;
+                    if (action === 'start') task = await api.post(`/api/vms/${enc}/start`, {});
+                    else if (action === 'stop') task = await api.post(`/api/vms/${enc}/stop`, {});
+                    else task = await api.post(`/api/vms/${enc}/restart`, {});
+                    showToast(`${label} VM ${vmName}...`, 'info');
+                    showTaskLogs(task.id, `${label} VM: ${vmName}`);
+                } catch (error) {
+                    console.error(`Error ${action} VM:`, error);
+                    showToast(`Failed to ${action} VM`, 'error');
+                }
+                break;
+            }
+            case 'agent-login': {
+                showAgentLoginModal(vmName);
+                break;
+            }
+            case 'destroy': {
+                const worker = vm?.worker || 'the host machine';
+                showPrompt('Delete VM: ' + vmName, generateDeleteVmPrompt(vmName, worker));
+                break;
+            }
+        }
+    }
+
+    async function loadGitHubTokenStatus() {
+        try {
+            const status = await api.get('/api/settings/github-token');
+            githubTokenInput.value = '';
+
+            if (status.configured) {
+                tokenStatus.className = 'info-box info-box-green text-xs';
+                tokenStatus.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Token configured: ${escapeHtml(status.masked_token || 'Active')}`;
+                tokenStatus.classList.remove('hidden');
+            } else {
+                tokenStatus.className = 'info-box info-box-yellow text-xs';
+                tokenStatus.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> No token configured';
+                tokenStatus.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error('Failed to load GitHub token status:', error);
+            tokenStatus.className = 'info-box info-box-red text-xs';
+            tokenStatus.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i> Failed to load token status';
+            tokenStatus.classList.remove('hidden');
+        }
+    }
+
+    async function handleSaveGitHubToken() {
+        const token = githubTokenInput.value.trim();
+        if (!token) {
+            showToast('Please enter a GitHub token', 'error');
+            return;
+        }
+
+        try {
+            const result = await api.post('/api/settings/github-token', { token });
+            showToast(result.message || 'GitHub token saved', 'success');
+            hideModal(settingsModal);
+        } catch (error) {
+            console.error('Failed to save GitHub token:', error);
+            showToast('Failed to save GitHub token', 'error');
+        }
+    }
+
+    async function handleClearGitHubToken() {
+        if (!confirm('Are you sure you want to clear the GitHub token?')) return;
+        try {
+            const result = await api.post('/api/settings/github-token', { token: null });
+            showToast(result.message || 'GitHub token cleared', 'success');
+            githubTokenInput.value = '';
+            loadGitHubTokenStatus();
+        } catch (error) {
+            showToast('Failed to clear GitHub token', 'error');
+        }
+    }
+
+    function populateWorkerSelect() {
+        createVmWorkerSelect.innerHTML = '';
+        if (hostsData.length === 0) {
+            createVmWorkerSelect.innerHTML = '<option value="">No workers available</option>';
+            return;
+        }
+        hostsData.forEach(h => {
+            const opt = document.createElement('option');
+            opt.value = h.name;
+            opt.textContent = h.name + (h.ip ? ` (${h.ip})` : '');
+            createVmWorkerSelect.appendChild(opt);
+        });
+    }
+
+    function handleCreateVm() {
+        const vmName = createVmNameInput.value.trim();
+        const image = createVmImageInput.value.trim();
+        const worker = createVmWorkerSelect.value;
+        const cpu = parseInt(createVmCpuInput.value);
+        const memory = parseInt(createVmMemoryInput.value);
+        const disk = parseInt(createVmDiskInput.value);
+        const startup = createVmStartupInput.value.trim();
+
+        if (!vmName) { showToast('Please enter a VM name', 'error'); return; }
+        if (!image) { showToast('Please enter an OCI image URL', 'error'); return; }
+
+        hideModal(createVmModal);
+        showPrompt('Create VM: ' + vmName, generateCreateVmPrompt(vmName, image, worker, cpu, memory, disk, startup));
+    }
+
+    function handleCreateWorker() {
+        const name = createWorkerNameInput.value.trim();
+        const controller = createWorkerControllerInput.value.trim();
+
+        if (!name) { showToast('Please enter a worker name', 'error'); return; }
+        if (!controller) { showToast('Please enter the controller URL', 'error'); return; }
+
+        hideModal(createWorkerModal);
+        showPrompt('Add Worker: ' + name, generateCreateWorkerPrompt(name, controller));
+    }
+
+    function showPrompt(title, prompt) {
+        promptTitle.textContent = title;
+        promptOutput.textContent = prompt;
+        promptCopiedBadge.classList.add('hidden');
+        showModal(promptModal);
+    }
+
+    async function handleCopyPrompt() {
+        try {
+            await navigator.clipboard.writeText(promptOutput.textContent);
+            promptCopiedBadge.classList.remove('hidden');
+            setTimeout(() => promptCopiedBadge.classList.add('hidden'), 2000);
+        } catch (e) {
+            // Fallback: select all text
+            const range = document.createRange();
+            range.selectNodeContents(promptOutput);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            showToast('Text selected — press Ctrl+C to copy', 'info');
+        }
+    }
+
+    function generateCreateVmPrompt(name, image, worker, cpu, memory, disk, startup) {
+        const memGB = memory >= 1024 ? `${Math.round(memory / 1024)} GB` : `${memory} MB`;
+        let prompt = `Create a Tart VM and register it with Orchard.
+
+## VM Specification
+
+- **Name**: ${name}
+- **Image**: ${image}
+- **CPU**: ${cpu} cores
+- **Memory**: ${memGB} (${memory} MB)
+- **Disk**: ${disk} GB
+- **Target worker**: ${worker || 'any available'}
+
+## Steps
+
+1. **SSH into the worker machine** (${worker || 'target host'}) where the VM will run.
+
+2. **Clone the VM from the OCI image**:
+   \`\`\`bash
+   tart clone ${image} ${name}
+   tart set ${name} --cpu ${cpu} --memory ${memory}${disk ? ` --disk-size ${disk}` : ''}
+   \`\`\`
+
+3. **Start the VM** (headless):
+   \`\`\`bash
+   nohup tart run ${name} --no-graphics > /tmp/tart-${name}.log 2>&1 &
+   \`\`\`
+
+4. **Wait for the VM to boot**, then get its IP:
+   \`\`\`bash
+   tart ip ${name}
+   \`\`\`
+`;
+
+        if (startup) {
+            prompt += `
+5. **Run the startup script** inside the VM:
+   \`\`\`bash
+   tart exec ${name} bash -c '${startup.replace(/'/g, "'\\''")}'
+   \`\`\`
+`;
+        }
+
+        prompt += `
+## Post-Creation
+
+- Generate an SSH key pair for the VM and push the public key via \`tart exec\`
+- If the VM needs to be reachable over the network, register it with Tailscale:
+  \`\`\`bash
+  tart exec ${name} bash -c "sudo systemctl enable --now tailscaled && sudo tailscale up --hostname=${name} --authkey=<TAILSCALE_AUTH_KEY>"
+  \`\`\`
+- If it needs a \`RemoveIPC=no\` fix (for services using shared memory like PostgreSQL):
+  \`\`\`bash
+  tart exec ${name} bash -c "sudo sed -i 's/#RemoveIPC=yes/RemoveIPC=no/' /etc/systemd/logind.conf && sudo systemctl restart systemd-logind"
+  \`\`\`
+- Add a reverse proxy route in Caddy if the VM serves HTTP traffic
+- Verify with: \`tart list\` and \`tailscale status\``;
+
+        return prompt;
+    }
+
+    function generateCreateWorkerPrompt(name, controllerUrl) {
+        return `Register a new machine as an Orchard worker connecting to the controller at ${controllerUrl}.
+
+## Prerequisites
+
+The target machine (${name}) needs:
+- macOS with Apple Silicon (M1/M2/M3/M4)
+- Homebrew installed
+
+## Steps
+
+1. **Install Tart and Orchard** on ${name}:
+   \`\`\`bash
+   brew install cirruslabs/cli/tart
+   \`\`\`
+   Orchard is included with Tart. Verify: \`tart --version && orchard --version\`
+
+2. **Create a service account** on the Orchard controller for this worker:
+   \`\`\`bash
+   orchard create service-account ${name}-worker --roles compute:write
+   \`\`\`
+
+3. **Get the bootstrap token**:
+   \`\`\`bash
+   orchard get bootstrap-token ${name}-worker
+   \`\`\`
+   Save the token — you'll need it for the worker configuration.
+
+4. **Create a launchd plist** on ${name} at \`~/Library/LaunchAgents/org.cirruslabs.orchard.worker.plist\`:
+   \`\`\`xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+       <key>Label</key>
+       <string>org.cirruslabs.orchard.worker</string>
+       <key>ProgramArguments</key>
+       <array>
+           <string>/opt/homebrew/bin/orchard</string>
+           <string>worker</string>
+           <string>run</string>
+           <string>--bootstrap-token</string>
+           <string>PASTE_BOOTSTRAP_TOKEN_HERE</string>
+           <string>--name</string>
+           <string>${name}</string>
+           <string>${controllerUrl}</string>
+       </array>
+       <key>RunAtLoad</key>
+       <true/>
+       <key>KeepAlive</key>
+       <true/>
+       <key>StandardOutPath</key>
+       <string>/tmp/orchard-worker.log</string>
+       <key>StandardErrorPath</key>
+       <string>/tmp/orchard-worker.err</string>
+       <key>EnvironmentVariables</key>
+       <dict>
+           <key>PATH</key>
+           <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+       </dict>
+   </dict>
+   </plist>
+   \`\`\`
+
+5. **Load the plist** to start the worker:
+   \`\`\`bash
+   launchctl load ~/Library/LaunchAgents/org.cirruslabs.orchard.worker.plist
+   \`\`\`
+
+6. **Pull base VM images** so the worker is ready to create VMs:
+   \`\`\`bash
+   tart pull ghcr.io/cirruslabs/ubuntu:latest
+   \`\`\`
+
+## Verification
+
+- Check the worker registered: \`orchard list workers\` — should show "${name}"
+- Check the worker logs: \`cat /tmp/orchard-worker.log\`
+- If there are auth errors, verify the service account has \`compute:write\` role
+
+## Notes
+
+- The worker connects to the Orchard controller and advertises available Tart compute capacity
+- macOS has a hard limit of 2 concurrent macOS guest VMs per physical Mac (kernel-enforced)
+- Linux VMs have no limit — use Linux images for non-macOS workloads
+- Consider reducing the DHCP lease time if running many VMs daily:
+  \`\`\`bash
+  sudo defaults write /Library/Preferences/SystemConfiguration/com.apple.InternetSharing.default.plist bootpd -dict DHCPLeaseTimeSecs -int 600
+  \`\`\``;
+    }
+
+    function generateDeleteVmPrompt(vmName, worker) {
+        return `Delete the Tart VM "${vmName}" from worker "${worker}".
+
+## Steps
+
+1. **SSH into the worker** (${worker}) where the VM is running.
+
+2. **Stop the VM** if it's running:
+   \`\`\`bash
+   tart stop ${vmName}
+   \`\`\`
+
+3. **Remove the VM's Tailscale registration** (if it was registered):
+   \`\`\`bash
+   # Check if the VM has a Tailscale identity
+   tailscale status | grep ${vmName}
+   # If found, remove it from the Tailscale admin console or via API
+   \`\`\`
+
+4. **Delete the VM**:
+   \`\`\`bash
+   tart delete ${vmName}
+   \`\`\`
+
+5. **Clean up Caddy routes** — if the VM had reverse proxy routes configured in the Caddyfile, remove them and reload:
+   \`\`\`bash
+   # Edit the Caddyfile to remove routes pointing to this VM's IP
+   caddy reload --config /path/to/Caddyfile
+   \`\`\`
+
+6. **Remove SSH keys** if a dedicated key pair was created:
+   \`\`\`bash
+   rm -f ~/.ssh/vms/${vmName} ~/.ssh/vms/${vmName}.pub
+   \`\`\`
+
+## Verification
+
+- \`tart list\` should no longer show "${vmName}"
+- \`tailscale status\` should no longer show the VM
+- Any services that depended on this VM should be migrated or decommissioned`;
+    }
+
+    function showTaskLogs(taskId, title) {
+        currentTaskId = taskId;
+        taskTitle.textContent = title;
+        taskLogs.innerHTML = '<div class="text-secondary">Waiting for logs...</div>';
+
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/tasks/${taskId}?token=${encodeURIComponent(window.API_TOKEN || '')}`;
+
+        taskSocket = new WebSocket(wsUrl);
+
+        taskSocket.onmessage = (event) => {
+            if (!event.data || event.data.trim() === '') return;
+
+            const task = JSON.parse(event.data);
+
+            // Update status badge
+            if (task.status === 'completed') {
+                taskStatusEl.className = 'status-running';
+                taskStatusEl.style.cssText = 'display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;';
+            } else if (task.status === 'failed') {
+                taskStatusEl.className = 'status-stopped';
+                taskStatusEl.style.cssText = 'display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;';
+            } else {
+                taskStatusEl.className = 'badge badge-blue';
+                taskStatusEl.style.cssText = '';
+            }
+            taskStatusEl.textContent = task.status.charAt(0).toUpperCase() + task.status.slice(1);
+
+            if (task.logs && task.logs.length > 0) {
+                taskLogs.innerHTML = task.logs.map(log =>
+                    `<div class="log-entry">${escapeHtml(log)}</div>`
+                ).join('');
+                taskLogs.scrollTop = taskLogs.scrollHeight;
+            }
+
+            if (task.status === 'completed' || task.status === 'failed') {
+                if (task.status === 'completed') {
+                    setTimeout(() => {
+                        if (taskSocket) {
+                            taskSocket.close();
+                            taskSocket = null;
+                        }
+                        hideModal(taskLogsModal);
+                        loadVMsCached();
+                        refreshActiveTasks();
+                    }, 2000);
+                }
+            }
+        };
+
+        taskSocket.onclose = () => {
+            taskSocket = null;
+        };
+
+        showModal(taskLogsModal);
+    }
+
+    function showModal(modal) {
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function hideModal(modal) {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    function showLoading() {
+        if (lastVMs && lastVMs.length > 0) {
+            // VMs already visible — show inline loading bar instead of replacing content
+            vmsLoading.classList.add('hidden');
+            vmsSection.classList.remove('hidden');
+            vmsSection.querySelector('.surface').classList.add('loading-bar');
+        } else {
+            vmsLoading.classList.remove('hidden');
+            vmsEmpty.classList.add('hidden');
+            vmsSection.classList.add('hidden');
+        }
+    }
+
+    function hideLoading() {
+        vmsLoading.classList.add('hidden');
+        vmsSection.querySelector('.surface')?.classList.remove('loading-bar');
+    }
+
+    function showToast(message, type = 'info') {
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+
+        toastMessage.textContent = message;
+
+        const toastInner = toast.querySelector('.toast');
+        toastInner.className = 'toast px-4 py-3 flex items-center';
+
+        if (type === 'error') {
+            toastInner.classList.add('toast-error');
+        } else if (type === 'success') {
+            toastInner.classList.add('toast-success');
+        } else {
+            toastInner.classList.add('toast-info');
+        }
+
+        toast.classList.remove('hidden');
+
+        setTimeout(() => {
+            toast.classList.add('hidden');
+        }, 5000);
+    }
+
+    // --- Agent Login ---
+    let agentLoginVmName = null;
+    let agentLoginSocket = null;
+
+    const agentLoginModal = document.getElementById('agent-login-modal');
+    const agentSelectPanel = document.getElementById('agent-select-panel');
+    const agentLoginTerminal = document.getElementById('agent-login-terminal');
+    const agentLoginOutput = document.getElementById('agent-login-output');
+    const agentLoginInput = document.getElementById('agent-login-input');
+    const agentLoginTitle = document.getElementById('agent-login-title');
+    const agentLoginStatus = document.getElementById('agent-login-status');
+    const agentLoginCloseBtn = document.getElementById('agent-login-close-btn');
+
+    agentLoginCloseBtn.addEventListener('click', closeAgentLogin);
+    agentLoginInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendAgentLoginInput();
+    });
+
+    function showAgentLoginModal(vmName) {
+        agentLoginVmName = vmName;
+        agentLoginTitle.textContent = `Agent Login — ${vmName}`;
+        agentSelectPanel.classList.remove('hidden');
+        agentLoginTerminal.classList.add('hidden');
+        agentLoginOutput.innerHTML = '';
+        agentLoginStatus.classList.add('hidden');
+        showModal(agentLoginModal);
+    }
+
+    let agentLoginAction = 'login';
+
+    function startAgentLogin(vmName, agentType, action) {
+        agentLoginAction = action || 'login';
+        agentSelectPanel.classList.add('hidden');
+        agentLoginTerminal.classList.remove('hidden');
+        agentLoginOutput.innerHTML = '';
+        agentLoginInput.disabled = false;
+        agentLoginStatus.className = 'badge badge-blue';
+        agentLoginStatus.textContent = 'Connecting...';
+        agentLoginStatus.classList.remove('hidden');
+        // Only gemini login needs stdin input (paste auth code)
+        const inputRow = document.getElementById('agent-login-input-row');
+        const needsInput = action !== 'test' && agentType === 'gemini';
+        inputRow.classList.toggle('hidden', !needsInput);
+
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/agent-login/${encodeURIComponent(vmName)}?token=${encodeURIComponent(window.API_TOKEN || '')}`;
+
+        agentLoginSocket = new WebSocket(wsUrl);
+
+        agentLoginSocket.onopen = () => {
+            agentLoginSocket.send(JSON.stringify({ agent: agentType, action: action || 'login' }));
+            agentLoginStatus.textContent = 'Running';
+        };
+
+        agentLoginSocket.onmessage = (event) => {
+            if (!event.data || event.data.trim() === '') return;
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'output') {
+                agentLoginOutput.innerHTML += linkifyUrls(msg.data);
+                agentLoginOutput.scrollTop = agentLoginOutput.scrollHeight;
+            } else if (msg.type === 'exit') {
+                agentLoginInput.disabled = true;
+                const statusStyle = 'display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;';
+                if (msg.code === 0) {
+                    const doneMsg = agentLoginAction === 'test' ? 'Test completed successfully.' : 'Login completed successfully.';
+                    agentLoginOutput.innerHTML += `\n<span style="color: #4ade80;">&#10003; ${doneMsg}</span>\n`;
+                    agentLoginStatus.className = 'status-running';
+                    agentLoginStatus.style.cssText = statusStyle;
+                    agentLoginStatus.textContent = 'Success';
+                } else {
+                    agentLoginOutput.innerHTML += `\n<span style="color: #f87171;">&#10007; Process exited with code ${msg.code}.</span>\n`;
+                    agentLoginStatus.className = 'status-stopped';
+                    agentLoginStatus.style.cssText = statusStyle;
+                    agentLoginStatus.textContent = `Exit ${msg.code}`;
+                }
+                agentLoginOutput.scrollTop = agentLoginOutput.scrollHeight;
+            } else if (msg.type === 'error') {
+                agentLoginOutput.innerHTML += `\n<span style="color: #f87171;">Error: ${escapeHtml(msg.data)}</span>\n`;
+                agentLoginInput.disabled = true;
+                agentLoginStatus.className = 'status-stopped';
+                agentLoginStatus.style.cssText = 'display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;';
+                agentLoginStatus.textContent = 'Error';
+                agentLoginOutput.scrollTop = agentLoginOutput.scrollHeight;
+            }
+        };
+
+        agentLoginSocket.onclose = () => { agentLoginSocket = null; };
+    }
+
+    function sendAgentLoginInput() {
+        if (!agentLoginSocket || agentLoginInput.disabled) return;
+        const text = agentLoginInput.value;
+        agentLoginOutput.innerHTML += `<span style="color: #94a3b8;">▸ ${escapeHtml(text)}</span>\n`;
+        agentLoginOutput.scrollTop = agentLoginOutput.scrollHeight;
+        agentLoginSocket.send(JSON.stringify({ type: 'input', data: text + '\n' }));
+        agentLoginInput.value = '';
+    }
+
+    function closeAgentLogin() {
+        if (agentLoginSocket) {
+            agentLoginSocket.close();
+            agentLoginSocket = null;
+        }
+        hideModal(agentLoginModal);
+    }
+
+    function escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function linkifyUrls(text) {
+        const escaped = escapeHtml(text);
+        return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: underline; word-break: break-all;">$1</a>');
+    }
+
+    // --- Pipeline ---
+    let pipelineTimer = null;
+    let pipelineRuns = [];
+    let expandedRunId = null;
+
+    const PIPELINE_REFRESH_MS = 30000;
+
+    const PIPELINE_STATE_CLASSES = {
+        DONE: 'pipeline-state-done',
+        MERGED: 'pipeline-state-done',
+        CLEANUP: 'pipeline-state-done',
+        FAILED: 'pipeline-state-failed',
+        DEVELOPING: 'pipeline-state-active',
+        REVIEWING: 'pipeline-state-active',
+        TESTING: 'pipeline-state-active',
+        DEPLOYING: 'pipeline-state-active',
+        VERIFYING: 'pipeline-state-active',
+        WORKTREE_SETUP: 'pipeline-state-active',
+        DEV_COMPLETE: 'pipeline-state-active',
+        REVIEW_DECIDED: 'pipeline-state-active',
+        TEST_DECIDED: 'pipeline-state-active',
+        AWAITING_MERGE: 'pipeline-state-merge',
+        RECEIVED: 'pipeline-state-idle',
+    };
+
+    const PIPELINE_STATE_ICONS = {
+        DONE: 'fa-check',
+        MERGED: 'fa-code-merge',
+        CLEANUP: 'fa-broom',
+        FAILED: 'fa-times',
+        DEVELOPING: 'fa-code',
+        REVIEWING: 'fa-search',
+        TESTING: 'fa-vial',
+        DEPLOYING: 'fa-rocket',
+        VERIFYING: 'fa-clipboard-check',
+        WORKTREE_SETUP: 'fa-folder-open',
+        DEV_COMPLETE: 'fa-check-double',
+        REVIEW_DECIDED: 'fa-gavel',
+        TEST_DECIDED: 'fa-gavel',
+        AWAITING_MERGE: 'fa-hourglass-half',
+        RECEIVED: 'fa-inbox',
+    };
+
+    function startPipelinePolling() {
+        if (pipelineTimer) return;
+        pipelineTimer = window.setInterval(() => {
+            if (document.hidden || activeTab !== 'pipeline') return;
+            loadPipelineData();
+        }, PIPELINE_REFRESH_MS);
+    }
+
+    function stopPipelinePolling() {
+        if (!pipelineTimer) return;
+        window.clearInterval(pipelineTimer);
+        pipelineTimer = null;
+    }
+
+    async function loadPipelineData() {
+        const loading = document.getElementById('pipeline-loading');
+        const error = document.getElementById('pipeline-error');
+        const content = document.getElementById('pipeline-content');
+
+        if (pipelineRuns.length === 0) {
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+            content.classList.add('hidden');
+        }
+
+        try {
+            const [runs, health] = await Promise.all([
+                api.get('/api/pipeline/runs'),
+                api.get('/api/pipeline/health'),
+            ]);
+
+            loading.classList.add('hidden');
+
+            if (health.status === 'unreachable') {
+                error.classList.remove('hidden');
+                content.classList.add('hidden');
+                return;
+            }
+
+            error.classList.add('hidden');
+            content.classList.remove('hidden');
+
+            pipelineRuns = runs;
+            renderPipelineStats(runs);
+            renderPipelineRuns(runs);
+            renderPipelineHealth(health);
+            renderPipelineStuck(runs);
+        } catch (e) {
+            loading.classList.add('hidden');
+            if (pipelineRuns.length === 0) {
+                error.classList.remove('hidden');
+                content.classList.add('hidden');
+            }
+            console.warn('Failed to load pipeline data:', e);
+        }
+    }
+
+    function renderPipelineStats(runs) {
+        const stats = document.getElementById('pipeline-stats');
+        const total = runs.length;
+        const active = runs.filter(r => !['DONE', 'FAILED', 'MERGED', 'CLEANUP'].includes(r.state)).length;
+        const completed = runs.filter(r => r.state === 'DONE').length;
+        const failed = runs.filter(r => r.state === 'FAILED').length;
+
+        stats.innerHTML = `
+            <div class="pipeline-stat">
+                <div>
+                    <div class="pipeline-stat-value">${total}</div>
+                    <div class="pipeline-stat-label">Total</div>
+                </div>
+            </div>
+            <div class="pipeline-stat" style="border-color: rgba(59, 130, 246, 0.3);">
+                <div>
+                    <div class="pipeline-stat-value" style="color: #60a5fa;">${active}</div>
+                    <div class="pipeline-stat-label">Active</div>
+                </div>
+            </div>
+            <div class="pipeline-stat" style="border-color: rgba(34, 197, 94, 0.3);">
+                <div>
+                    <div class="pipeline-stat-value" style="color: #4ade80;">${completed}</div>
+                    <div class="pipeline-stat-label">Completed</div>
+                </div>
+            </div>
+            <div class="pipeline-stat" style="border-color: rgba(239, 68, 68, 0.3);">
+                <div>
+                    <div class="pipeline-stat-value" style="color: #f87171;">${failed}</div>
+                    <div class="pipeline-stat-label">Failed</div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderPipelineRuns(runs) {
+        const list = document.getElementById('pipeline-runs-list');
+        const empty = document.getElementById('pipeline-runs-empty');
+        const table = document.getElementById('pipeline-runs-table');
+        const count = document.getElementById('pipeline-runs-count');
+
+        count.textContent = `(${runs.length})`;
+
+        if (!runs || runs.length === 0) {
+            table.classList.add('hidden');
+            empty.classList.remove('hidden');
+            return;
+        }
+
+        empty.classList.add('hidden');
+        table.classList.remove('hidden');
+
+        list.innerHTML = '';
+        runs.forEach(run => {
+            const stateClass = PIPELINE_STATE_CLASSES[run.state] || 'pipeline-state-idle';
+            const stateIcon = PIPELINE_STATE_ICONS[run.state] || 'fa-circle';
+            const isExpanded = expandedRunId === run.id;
+
+            const prHtml = run.pr_url
+                ? `<a class="accent-link" href="${escapeHtml(run.pr_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation();">#${run.pr_url.match(/\/pull\/(\d+)/)?.[1] || 'PR'}</a>`
+                : '<span class="text-secondary">—</span>';
+
+            const started = run.created_at
+                ? new Date(run.created_at + (run.created_at.endsWith('Z') ? '' : 'Z')).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : '—';
+
+            const duration = run.created_at ? formatPipelineDuration(run.created_at, run.state) : '—';
+
+            const row = document.createElement('tr');
+            row.className = 'pipeline-run-row';
+            row.dataset.runId = run.id;
+            row.addEventListener('click', () => togglePipelineExpand(run.id));
+
+            row.innerHTML = `
+                <td style="width: 30px; text-align: center;"><i class="fas fa-chevron-${isExpanded ? 'down' : 'right'} text-secondary" style="font-size: 9px;"></i></td>
+                <td data-label="Issue"><span class="font-medium text-emphasis">${escapeHtml(run.issue_id)}</span></td>
+                <td data-label="Project"><span class="text-xs">${escapeHtml(run.project)}</span></td>
+                <td data-label="State"><span class="pipeline-state ${stateClass}"><i class="fas ${stateIcon}" style="font-size: 7px;"></i>${escapeHtml(run.state)}</span></td>
+                <td data-label="Branch"><span class="text-xs font-mono">${run.branch ? escapeHtml(run.branch) : '<span class="text-secondary">—</span>'}</span></td>
+                <td data-label="PR">${prHtml}</td>
+                <td data-label="Started" class="text-xs text-secondary">${started}</td>
+                <td data-label="Duration" class="text-xs text-secondary">${duration}</td>
+            `;
+            list.appendChild(row);
+
+            if (isExpanded) {
+                const expandRow = document.createElement('tr');
+                expandRow.className = 'pipeline-expand-row';
+                expandRow.innerHTML = `<td colspan="8"><div class="pipeline-expand-content"><div class="text-xs text-secondary">Loading tasks...</div></div></td>`;
+                list.appendChild(expandRow);
+                loadRunDetail(run.id, expandRow);
+            }
+        });
+    }
+
+    function formatPipelineDuration(createdAt, state) {
+        const start = new Date(createdAt + (createdAt.endsWith('Z') ? '' : 'Z'));
+        const end = ['DONE', 'FAILED'].includes(state) ? start : new Date();
+        const diff = Math.floor((end - start) / 1000);
+        if (diff < 60) return `${diff}s`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`;
+        return `${Math.floor(diff / 86400)}d ${Math.floor((diff % 86400) / 3600)}h`;
+    }
+
+    async function togglePipelineExpand(runId) {
+        if (expandedRunId === runId) {
+            expandedRunId = null;
+        } else {
+            expandedRunId = runId;
+        }
+        renderPipelineRuns(pipelineRuns);
+    }
+
+    async function loadRunDetail(runId, expandRow) {
+        try {
+            const detail = await api.get(`/api/pipeline/runs/${runId}`);
+            const content = expandRow.querySelector('.pipeline-expand-content');
+
+            if (!detail.tasks || detail.tasks.length === 0) {
+                content.innerHTML = '<div class="text-xs text-secondary">No agent tasks for this run.</div>';
+                return;
+            }
+
+            const taskStatusClass = (status) => {
+                if (status === 'running') return 'pipeline-state-active';
+                if (status === 'completed' || status === 'success') return 'pipeline-state-done';
+                if (status === 'failed' || status === 'failure') return 'pipeline-state-failed';
+                return 'pipeline-state-idle';
+            };
+
+            content.innerHTML = `
+                <table class="dark-table" style="margin: 0;">
+                    <thead>
+                        <tr>
+                            <th>Stage</th>
+                            <th>Focus</th>
+                            <th>Team</th>
+                            <th>Model</th>
+                            <th style="width: 90px;">Status</th>
+                            <th>Result</th>
+                            <th>tmux</th>
+                            <th style="width: 100px;">Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${detail.tasks.map(t => {
+                            const cls = taskStatusClass(t.status);
+                            const taskDuration = t.started_at
+                                ? formatPipelineDuration(t.started_at, t.completed_at ? 'DONE' : 'DEVELOPING')
+                                : '—';
+                            const tmuxHtml = t.tmux_session
+                                ? `<span class="font-mono">${escapeHtml(t.tmux_session)}</span>`
+                                : '<span class="text-secondary">—</span>';
+                            return `
+                                <tr>
+                                    <td class="text-xs">${escapeHtml(t.stage)}</td>
+                                    <td class="text-xs">${t.focus ? escapeHtml(t.focus) : '<span class="text-secondary">—</span>'}</td>
+                                    <td class="text-xs">${escapeHtml(t.team)}</td>
+                                    <td class="text-xs font-mono">${escapeHtml(t.model)}</td>
+                                    <td><span class="pipeline-state ${cls}">${escapeHtml(t.status || 'pending')}</span></td>
+                                    <td class="text-xs">${t.result ? escapeHtml(t.result) : '<span class="text-secondary">—</span>'}</td>
+                                    <td class="text-xs">${tmuxHtml}</td>
+                                    <td class="text-xs text-secondary">${taskDuration}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        } catch (e) {
+            const content = expandRow.querySelector('.pipeline-expand-content');
+            content.innerHTML = `<div class="text-xs" style="color: #f87171;">Failed to load run details: ${escapeHtml(e.message)}</div>`;
+        }
+    }
+
+    function renderPipelineStuck(runs) {
+        const banner = document.getElementById('pipeline-stuck-banner');
+        const stuckList = document.getElementById('pipeline-stuck-list');
+
+        // A run is "stuck" if it's been in a non-terminal state for > 2 hours
+        const TWO_HOURS = 2 * 60 * 60 * 1000;
+        const now = Date.now();
+        const terminalStates = ['DONE', 'FAILED', 'MERGED', 'CLEANUP'];
+
+        const stuck = runs.filter(r => {
+            if (terminalStates.includes(r.state)) return false;
+            const updated = new Date(r.updated_at + (r.updated_at.endsWith('Z') ? '' : 'Z'));
+            return (now - updated.getTime()) > TWO_HOURS;
+        });
+
+        if (stuck.length === 0) {
+            banner.classList.add('hidden');
+            return;
+        }
+
+        banner.classList.remove('hidden');
+        stuckList.innerHTML = stuck.map(r =>
+            `<div class="flex items-center justify-between" style="padding: 4px 0;">
+                <span>${escapeHtml(r.issue_id)} — stuck in <strong style="color: #fde047;">${escapeHtml(r.state)}</strong></span>
+                <button class="btn btn-neutral" style="padding: 2px 8px; font-size: 11px;" onclick="retryPipelineRun('${escapeHtml(r.id)}')">
+                    <i class="fas fa-redo mr-1" style="font-size: 9px;"></i>Retry
+                </button>
+            </div>`
+        ).join('');
+    }
+
+    async function retryPipelineRun(runId) {
+        try {
+            await api.post(`/api/pipeline/runs/${runId}/retry`, {});
+            showToast('Retry requested', 'success');
+            loadPipelineData();
+        } catch (e) {
+            showToast('Failed to retry: ' + e.message, 'error');
+        }
+    }
+
+    function renderPipelineHealth(health) {
+        const el = document.getElementById('pipeline-health');
+        if (health.status === 'ok') {
+            el.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="status-running" style="display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">
+                        <i class="fas fa-wifi" style="font-size: 8px;"></i>Connected
+                    </span>
+                    <span class="text-xs text-secondary">pipeline controller</span>
+                </div>
+            `;
+        } else {
+            el.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="status-stopped" style="display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">
+                        <i class="fas fa-plug-circle-xmark" style="font-size: 8px;"></i>Unreachable
+                    </span>
+                </div>
+            `;
+        }
+    }
+</script>
+{% endblock %}
