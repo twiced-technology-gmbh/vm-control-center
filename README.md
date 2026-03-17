@@ -64,7 +64,6 @@ All settings use the `VMCC_` environment variable prefix (via [pydantic-settings
 | `VMCC_DEBUG` | `false` | Debug mode |
 | `VMCC_TART_PATH` | `tart` | Path to local Tart binary |
 | `VMCC_ORCHARD_TIMEOUT` | `30` | Orchard API timeout (seconds) |
-| `VMCC_PIPELINE_CONTROLLER_URL` | *(none)* | Pipeline Controller URL (pipeline tab disabled if unset) |
 | `VMCC_SSH_KEY` | *(none)* | SSH private key for remote worker access |
 | `VMCC_SSH_USER` | `admin` | SSH user on remote workers |
 | `VMCC_REMOTE_TART_PATH` | `/opt/homebrew/bin/tart` | Path to Tart binary on remote workers |

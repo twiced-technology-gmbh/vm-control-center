@@ -41,9 +41,6 @@ class Settings(BaseSettings):
     # Caddy admin API (on ddmini) for dynamic service URL discovery
     CADDY_ADMIN_URL: Optional[str] = None
 
-    # Pipeline controller URL
-    PIPELINE_CONTROLLER_URL: Optional[str] = None
-
     # Remote VM access (SSH to worker hosts running Tart)
     SSH_KEY: Optional[str] = None
     SSH_USER: str = "admin"
