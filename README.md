@@ -49,6 +49,12 @@ On first start, an API token is generated at `~/.vm-control-center/token`. The U
 
 ## Configuration
 
+Copy the example environment file and adjust for your deployment:
+
+```bash
+cp .env.example .env
+```
+
 All settings use the `VMCC_` environment variable prefix (via [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/)). Set them in `.env` or export directly.
 
 | Variable | Default | Description |

@@ -29,6 +29,7 @@ coverage.xml
 # Environment files
 .env
 .env.*
+!.env.example
 
 # Logs
 *.log
