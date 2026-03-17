@@ -1,17 +1,19 @@
 """Main FastAPI application for VM Control Center."""
 import asyncio
+import base64
 import hmac
 import json
 import logging
 import os
 import re
 import socket
+import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Dict, List, Optional
 from urllib.parse import quote, urlparse
 
-import httpx
 from fastapi import (
     Depends,
     FastAPI,
@@ -59,6 +61,27 @@ class GitHubTokenRequest(BaseModel):
     token: Optional[str] = None
 
 
+class RecreateVMRequest(BaseModel):
+    snapshot: Optional[str] = None
+
+
+class GitProfileRequest(BaseModel):
+    label: str
+    host: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    ssh_key: Optional[str] = None
+
+
+class ApplyProfileRequest(BaseModel):
+    profile_id: str
+
+
+
+class DeleteSnapshotsRequest(BaseModel):
+    names: List[str]
+
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -90,9 +113,6 @@ async def lifespan(app: FastAPI):
     await task_manager.stop_inventory_monitoring()
     await task_manager.stop_task_cleanup()
     await task_manager.close()
-
-    if _pipeline_client and not _pipeline_client.is_closed:
-        await _pipeline_client.aclose()
 
     if background_tasks:
         logger.info(f"Cancelling {len(background_tasks)} background tasks...")
@@ -543,6 +563,136 @@ async def _create_vm(task_id: str, payload: CreateVMRequest):
         await task_manager.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
 
 
+@app.get("/api/snapshots", dependencies=[Depends(verify_token)])
+async def list_all_snapshots():
+    """List all snapshots across all workers (local tart images that aren't orchard clones or OCI)."""
+    import re
+    results = []
+    seen_workers = set()
+
+    # Collect workers from inventory
+    vms = await task_manager.get_inventory()
+    vm_names = {vm.name for vm in vms}
+    for vm in vms:
+        if vm.worker:
+            seen_workers.add(vm.worker)
+    if not seen_workers:
+        seen_workers.add(socket.gethostname())
+
+    for worker in seen_workers:
+        rc, stdout, _ = await _run_tart_on_worker(["list", "--format", "json"], worker)
+        if rc != 0:
+            continue
+        raw = json.loads(stdout)
+        for item in raw:
+            name = item.get("Name", "")
+            source = item.get("Source", "local")
+            if source != "local":
+                continue
+            if name.startswith("orchard-"):
+                continue
+            if "@sha256:" in name:
+                continue
+            # Determine which VM this snapshot belongs to and its type
+            vm_owner = None
+            snap_type = "unknown"
+            for vm_name in sorted(vm_names, key=len, reverse=True):
+                if name == vm_name:
+                    vm_owner = vm_name
+                    snap_type = "base"
+                    break
+                if name.startswith(vm_name + "-"):
+                    vm_owner = vm_name
+                    suffix = name[len(vm_name) + 1:]
+                    if re.match(r"\d{4}-\d{2}-\d{2}$", suffix):
+                        snap_type = "daily"
+                    elif suffix.startswith("snap-"):
+                        snap_type = "manual"
+                    elif suffix == "hourly" or suffix.startswith("hourly"):
+                        snap_type = "hourly"
+                    else:
+                        snap_type = "other"
+                    break
+            if not vm_owner:
+                # Template or orphan image — skip
+                if name.startswith("templates-"):
+                    continue
+                snap_type = "other"
+            results.append({
+                "name": name,
+                "vm": vm_owner,
+                "type": snap_type,
+                "worker": worker,
+                "disk_size": item.get("Disk"),
+                "size": item.get("Size"),
+                "last_accessed": item.get("Accessed"),
+            })
+    return results
+
+
+@app.post("/api/snapshots/delete", dependencies=[Depends(verify_token)])
+async def delete_global_snapshots(body: DeleteSnapshotsRequest):
+    """Delete snapshots by name. Finds the correct worker automatically."""
+    # Build name→worker map
+    all_snaps = await list_all_snapshots()
+    snap_worker = {s["name"]: s["worker"] for s in all_snaps}
+
+    deleted = []
+    failed = []
+    for name in body.names:
+        worker = snap_worker.get(name)
+        if not worker:
+            failed.append({"name": name, "error": "snapshot not found"})
+            continue
+        rc, _, stderr = await _run_tart_on_worker(["delete", name], worker)
+        if rc == 0:
+            deleted.append(name)
+        else:
+            failed.append({"name": name, "error": stderr.strip()})
+
+    await task_manager.refresh_inventory_best_effort()
+    return {"deleted": deleted, "failed": failed}
+
+
+@app.post("/api/vms/bulk/start", dependencies=[Depends(verify_token)])
+async def bulk_start_vms():
+    """Start all stopped VMs."""
+    vms = await task_manager.get_inventory()
+    stopped = [vm for vm in vms if vm.status != VMStatus.RUNNING]
+    tasks = []
+    for vm in stopped:
+        task = await task_manager.create_task("start_vm")
+        create_background_task(_start_vm(task.id, vm.name))
+        tasks.append({"vm": vm.name, "task_id": task.id})
+    return {"started": len(tasks), "tasks": tasks}
+
+
+@app.post("/api/vms/bulk/restart", dependencies=[Depends(verify_token)])
+async def bulk_restart_vms():
+    """Restart all running VMs."""
+    vms = await task_manager.get_inventory()
+    running = [vm for vm in vms if vm.status == VMStatus.RUNNING]
+    tasks = []
+    for vm in running:
+        task = await task_manager.create_task("restart_vm")
+        create_background_task(_restart_vm(task.id, vm.name))
+        tasks.append({"vm": vm.name, "task_id": task.id})
+    return {"restarted": len(tasks), "tasks": tasks}
+
+
+@app.post("/api/vms/bulk/snapshot", dependencies=[Depends(verify_token)])
+async def bulk_snapshot_vms():
+    """Snapshot all running VMs."""
+    vms = await task_manager.get_inventory()
+    running = [vm for vm in vms if vm.status == VMStatus.RUNNING]
+    tasks = []
+    for vm in running:
+        task = await task_manager.create_task("snapshot_vm")
+        create_background_task(_snapshot_vm(task.id, vm.name))
+        tasks.append({"vm": vm.name, "task_id": task.id})
+    return {"snapshotted": len(tasks), "tasks": tasks}
+
+
 @app.post("/api/vms/{vm_name}/start", response_model=TaskModel, dependencies=[Depends(verify_token)])
 async def start_vm(vm_name: str):
     """Start a VM via Orchard (recreate from same config if in terminal state)."""
@@ -567,7 +717,131 @@ async def restart_vm(vm_name: str):
     return task
 
 
+@app.post("/api/vms/{vm_name}/snapshot", response_model=TaskModel, dependencies=[Depends(verify_token)])
+async def snapshot_vm(vm_name: str):
+    """Snapshot a running VM: clone Orchard tart clone back to source image."""
+    task = await task_manager.create_task("snapshot_vm")
+    create_background_task(_snapshot_vm(task.id, vm_name))
+    return task
+
+
+@app.get("/api/vms/{vm_name}/snapshots", dependencies=[Depends(verify_token)])
+async def list_snapshots(vm_name: str):
+    """List available snapshots for a VM (source image + hourly/daily snapshots)."""
+    try:
+        _, worker = await task_manager.resolve_tart_name(vm_name)
+    except RuntimeError:
+        # VM not running — check saved config for worker, default to local
+        worker = socket.gethostname()
+
+    rc, stdout, _ = await _run_tart_on_worker(["list", "--format", "json"], worker)
+    if rc != 0:
+        return []
+
+    raw = json.loads(stdout)
+
+    # Get birth times for accurate timestamps (tart's Accessed field is unreliable)
+    birth_times = await _get_snapshot_birth_times(worker, vm_name)
+
+    snapshots = []
+    prefixes = (vm_name + "-", )
+    for item in raw:
+        name = item.get("Name", "")
+        if name == vm_name or (name.startswith(prefixes[0]) and not name.startswith("orchard-")):
+            snapshots.append({
+                "name": name,
+                "disk_size": item.get("Disk"),
+                "size": item.get("Size"),
+                "last_accessed": birth_times.get(name) or item.get("Accessed"),
+                "state": item.get("State", "stopped"),
+            })
+    return snapshots
+
+
+async def _get_snapshot_birth_times(worker: str, vm_name: str) -> dict:
+    """Get filesystem birth times for snapshot images on a worker."""
+    local_host = socket.gethostname().lower().split(".")[0]
+    is_local = worker.lower().split(".")[0] == local_host
+
+    if is_local:
+        from pathlib import Path
+        tart_dir = Path.home() / ".tart" / "vms"
+        dirs = [str(p) for p in tart_dir.iterdir() if p.is_dir() and (p.name == vm_name or p.name.startswith(f"{vm_name}-"))]
+        if not dirs:
+            return {}
+        cmd = ["stat", "-f", "%N\t%SB", "-t", "%Y-%m-%dT%H:%M:%SZ"] + dirs
+    else:
+        worker_cfg = settings.REMOTE_WORKERS.get(worker)
+        if not worker_cfg:
+            return {}
+        cmd_str = f"stat -f '%N\\t%SB' -t '%Y-%m-%dT%H:%M:%SZ' ~/.tart/vms/{vm_name}/ ~/.tart/vms/{vm_name}-*/ 2>/dev/null"
+        cmd = ["ssh", "-i", worker_cfg["key"], "-o", "ConnectTimeout=5",
+               f"{worker_cfg['user']}@{worker_cfg['host']}", cmd_str]
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_data, _ = await proc.communicate()
+        result = {}
+        for line in stdout_data.decode().strip().split("\n"):
+            if "\t" not in line:
+                continue
+            path, birth = line.split("\t", 1)
+            name = path.rstrip("/").rsplit("/", 1)[-1]
+            result[name] = birth
+        return result
+    except Exception:
+        return {}
+
+
+@app.post("/api/vms/{vm_name}/recreate", response_model=TaskModel, dependencies=[Depends(verify_token)])
+async def recreate_vm(vm_name: str, body: RecreateVMRequest = RecreateVMRequest()):
+    """Recreate a VM from a snapshot. If no snapshot specified, uses the source image."""
+    task = await task_manager.create_task("recreate_vm")
+    create_background_task(_recreate_vm(task.id, vm_name, snapshot=body.snapshot))
+    return task
+
+
+@app.post("/api/vms/{vm_name}/snapshots/delete", dependencies=[Depends(verify_token)])
+async def delete_snapshots(vm_name: str, body: DeleteSnapshotsRequest):
+    """Delete one or more snapshots for a VM."""
+    try:
+        _, worker = await task_manager.resolve_tart_name(vm_name)
+    except RuntimeError:
+        worker = socket.gethostname()
+
+    deleted = []
+    failed = []
+    for name in body.names:
+        # Safety: only allow deleting snapshots that belong to this VM
+        if name != vm_name and not name.startswith(f"{vm_name}-"):
+            failed.append({"name": name, "error": "not a snapshot of this VM"})
+            continue
+        rc, _, stderr = await _run_tart_on_worker(["delete", name], worker)
+        if rc == 0:
+            deleted.append(name)
+        else:
+            failed.append({"name": name, "error": stderr.strip()})
+
+    await task_manager.refresh_inventory_best_effort()
+    return {"deleted": deleted, "failed": failed}
+
+
 _VM_CONFIGS_DIR = Path.home() / ".vm-control-center" / "vm-configs"
+_GIT_PROFILES_FILE = Path.home() / ".vm-control-center" / "git-profiles.json"
+
+
+def _load_git_profiles() -> list[dict]:
+    if not _GIT_PROFILES_FILE.exists():
+        return []
+    return json.loads(_GIT_PROFILES_FILE.read_text())
+
+
+def _save_git_profiles(profiles: list[dict]) -> None:
+    _GIT_PROFILES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _GIT_PROFILES_FILE.write_text(json.dumps(profiles, indent=2))
+    _GIT_PROFILES_FILE.chmod(0o600)
 
 
 def _save_vm_config(vm_name: str, config: dict) -> None:
@@ -739,6 +1013,99 @@ async def _restart_vm(task_id: str, vm_name: str):
         await task_manager.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
 
 
+def _build_tart_ssh_cmd(worker: str, tart_cmd: str) -> list:
+    """Build SSH command to run a tart command on a remote worker."""
+    ssh = ["ssh"]
+    if settings.SSH_KEY:
+        ssh += ["-i", settings.SSH_KEY]
+    ssh += ["-o", "StrictHostKeyChecking=accept-new",
+            f"{settings.SSH_USER}@{worker}", tart_cmd]
+    return ssh
+
+
+def _is_local_worker(worker: str) -> bool:
+    return worker and worker.lower() == socket.gethostname().lower()
+
+
+async def _run_tart_on_worker(args: list, worker: str, timeout: float = 30.0) -> tuple:
+    """Run a tart command on the correct worker (local or SSH). Returns (returncode, stdout, stderr)."""
+    if _is_local_worker(worker):
+        cmd = [settings.TART_PATH] + args
+    else:
+        tart_cmd = f"{settings.REMOTE_TART_PATH} {' '.join(args)}"
+        cmd = _build_tart_ssh_cmd(worker, tart_cmd)
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        proc.kill()
+        return 1, "", f"Command timed out after {timeout}s"
+    return proc.returncode, stdout.decode(), stderr.decode()
+
+
+async def _snapshot_vm(task_id: str, vm_name: str):
+    """Snapshot: clone the running Orchard tart clone to a timestamped image."""
+    from datetime import datetime
+    try:
+        await task_manager.update_task(task_id, status=TaskStatus.RUNNING, log=f"Creating snapshot of VM '{vm_name}'...")
+
+        tart_name, worker = await task_manager.resolve_tart_name(vm_name)
+        await task_manager.update_task(task_id, log=f"Resolved tart clone: {tart_name} on {worker}")
+
+        # Create uniquely named snapshot
+        timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        snapshot_name = f"{vm_name}-snap-{timestamp}"
+
+        await task_manager.update_task(task_id, log=f"Cloning {tart_name} → {snapshot_name}...")
+        rc, _, stderr = await _run_tart_on_worker(["clone", tart_name, snapshot_name], worker, timeout=300.0)
+        if rc != 0:
+            raise RuntimeError(f"tart clone failed: {stderr.strip()}")
+
+        await task_manager.update_task(
+            task_id, status=TaskStatus.COMPLETED,
+            result={"message": f"Snapshot '{snapshot_name}' created"},
+            log=f"Snapshot complete: '{snapshot_name}' on {worker}",
+        )
+        await task_manager.refresh_inventory_best_effort()
+    except Exception as e:
+        logger.exception(f"Failed to snapshot VM '{vm_name}'")
+        await task_manager.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
+
+
+async def _recreate_vm(task_id: str, vm_name: str, snapshot: Optional[str] = None):
+    """Recreate: delete Orchard VM and create fresh from a snapshot image."""
+    image_name = snapshot or vm_name
+    try:
+        await task_manager.update_task(task_id, status=TaskStatus.RUNNING, log=f"Recreating VM '{vm_name}' from image '{image_name}'...")
+
+        config = await _get_vm_config(vm_name)
+        _save_vm_config(vm_name, config)
+        create_body = _build_create_body(config)
+        create_body["image"] = image_name
+
+        await task_manager.update_task(task_id, log=f"Deleting Orchard VM '{vm_name}'...")
+        await task_manager.delete_vm(vm_name, task_id=task_id)
+
+        await task_manager.update_task(task_id, log=f"Creating VM '{vm_name}' from image '{image_name}'...")
+        status_code, resp = await task_manager.orchard_create_vm(create_body)
+        if status_code not in (200, 201):
+            msg = resp.get("message", resp) if isinstance(resp, dict) else str(resp)
+            raise RuntimeError(f"Failed to recreate VM: {msg}")
+
+        await task_manager.update_task(
+            task_id, status=TaskStatus.COMPLETED,
+            result={"message": f"VM '{vm_name}' recreated from '{image_name}'"},
+            log=f"VM '{vm_name}' is now running from '{image_name}'",
+        )
+        await task_manager.refresh_inventory_best_effort()
+    except Exception as e:
+        logger.exception(f"Failed to recreate VM '{vm_name}'")
+        await task_manager.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
+
+
 @app.delete("/api/vms/{vm_name}", response_model=TaskModel, dependencies=[Depends(verify_token)])
 async def destroy_vm(vm_name: str):
     """Destroy a VM via Orchard (stops and removes it)."""
@@ -760,6 +1127,348 @@ async def _destroy_vm(task_id: str, vm_name: str):
     except Exception as e:
         logger.exception(f"Failed to destroy VM '{vm_name}'")
         await task_manager.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
+
+
+# --- Git Profiles ---
+
+@app.get("/api/git-profiles", dependencies=[Depends(verify_token)])
+async def list_git_profiles():
+    """List all git profiles with secrets masked."""
+    profiles = _load_git_profiles()
+    masked = []
+    for p in profiles:
+        mp = {**p}
+        if mp.get("ssh_key"):
+            mp["ssh_key"] = "***"
+        mp.pop("token", None)
+        masked.append(mp)
+    return masked
+
+
+@app.get("/api/git-profiles/{profile_id}", dependencies=[Depends(verify_token)])
+async def get_git_profile(profile_id: str):
+    """Get a single git profile with secrets unmasked (for edit form)."""
+    profiles = _load_git_profiles()
+    for p in profiles:
+        if p["id"] == profile_id:
+            return p
+    raise HTTPException(status_code=404, detail="Profile not found")
+
+
+@app.post("/api/git-profiles", dependencies=[Depends(verify_token)])
+async def create_git_profile(req: GitProfileRequest):
+    """Create a new git profile."""
+    profiles = _load_git_profiles()
+    profile = {
+        "id": str(uuid.uuid4()),
+        "label": req.label,
+        "host": req.host,
+        "name": req.name or "",
+        "email": req.email or "",
+        "ssh_key": req.ssh_key or "",
+    }
+    profiles.append(profile)
+    _save_git_profiles(profiles)
+    return profile
+
+
+@app.put("/api/git-profiles/{profile_id}", dependencies=[Depends(verify_token)])
+async def update_git_profile(profile_id: str, req: GitProfileRequest):
+    """Update an existing git profile. Empty ssh_key = keep existing."""
+    profiles = _load_git_profiles()
+    for i, p in enumerate(profiles):
+        if p["id"] == profile_id:
+            p["label"] = req.label
+            p["host"] = req.host
+            p["name"] = req.name or ""
+            p["email"] = req.email or ""
+            if req.ssh_key:
+                p["ssh_key"] = req.ssh_key
+            p.pop("match", None)
+            profiles[i] = p
+            _save_git_profiles(profiles)
+            return p
+    raise HTTPException(status_code=404, detail="Profile not found")
+
+
+@app.delete("/api/git-profiles/{profile_id}", dependencies=[Depends(verify_token)])
+async def delete_git_profile(profile_id: str):
+    """Delete a git profile."""
+    profiles = _load_git_profiles()
+    profiles = [p for p in profiles if p["id"] != profile_id]
+    _save_git_profiles(profiles)
+    return {"message": "Profile deleted"}
+
+
+@app.post("/api/vms/{vm_name}/git-profiles/apply", dependencies=[Depends(verify_token)])
+async def apply_git_profile(vm_name: str, req: ApplyProfileRequest):
+    """Apply a single git profile to a VM via tart exec (replaces any previous profile)."""
+    all_profiles = _load_git_profiles()
+    profile = next((p for p in all_profiles if p["id"] == req.profile_id), None)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    tart_name, worker = await task_manager.resolve_tart_name(vm_name)
+    path_setup = 'export PATH="$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$PATH" && [ -f "$HOME/.profile" ] && . "$HOME/.profile" 2>/dev/null; '
+
+    commands = []
+    pid = profile["id"]
+    host = profile["host"]
+    host_alias = f"{host}-{pid[:8]}"
+    key_file = f"~/.ssh/git-profile-{pid[:8]}"
+
+    # SSH key
+    if profile.get("ssh_key"):
+        b64_key = base64.b64encode(profile["ssh_key"].encode()).decode()
+        commands.append("mkdir -p ~/.ssh && chmod 700 ~/.ssh")
+        commands.append(f"echo '{b64_key}' | base64 -d > {key_file} && chmod 600 {key_file}")
+        commands.append(f"ssh-keyscan -T 5 {host} >> ~/.ssh/known_hosts 2>/dev/null")
+
+        marker = f"# git-profile {pid}"
+        ssh_block = (
+            f"{marker}\\n"
+            f"Host {host_alias}\\n"
+            f"  HostName {host}\\n"
+            f"  User git\\n"
+            f"  IdentityFile {key_file}\\n"
+            f"  IdentitiesOnly yes\\n"
+            f"{marker} end"
+        )
+        commands.append(f"sed -i '/^{marker}$/,/^{marker} end$/d' ~/.ssh/config 2>/dev/null; true")
+        commands.append(f"echo -e '{ssh_block}' >> ~/.ssh/config && chmod 600 ~/.ssh/config")
+
+    # Git identity
+    if profile.get("name"):
+        commands.append(f'git config --global user.name "{profile["name"]}"')
+    if profile.get("email"):
+        commands.append(f'git config --global user.email "{profile["email"]}"')
+
+    cmd_str = path_setup + " && ".join(commands)
+    rc, stdout, stderr = await _run_tart_on_worker(["exec", tart_name, "bash", "-c", cmd_str], worker)
+    output = (stdout + stderr).strip()
+    success = rc == 0
+
+    # Track applied profile (replaces previous)
+    if success:
+        vm_cfg = _load_vm_config(vm_name) or {}
+        vm_cfg["applied_git_profile"] = req.profile_id
+        _save_vm_config(vm_name, vm_cfg)
+
+    return {"success": success, "profile": profile["label"], "output": output}
+
+
+@app.get("/api/vms/{vm_name}/git-profiles/applied", dependencies=[Depends(verify_token)])
+async def get_applied_git_profile(vm_name: str):
+    """Get the profile ID applied to this VM."""
+    vm_cfg = _load_vm_config(vm_name) or {}
+    return {"applied": vm_cfg.get("applied_git_profile")}
+
+
+
+@app.get("/api/vms/{vm_name}/cli-auth-status", dependencies=[Depends(verify_token)])
+async def get_cli_auth_status(vm_name: str):
+    """Check GitHub/GitLab CLI auth status on a VM."""
+    tart_name, worker = await task_manager.resolve_tart_name(vm_name)
+    path_setup = 'export PATH="$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$PATH" && [ -f "$HOME/.profile" ] && . "$HOME/.profile" 2>/dev/null; '
+
+    cmd_str = path_setup + (
+        'echo "::GH::"; (gh auth status 2>&1 || echo "NOT_AUTHED"); '
+        'echo "::GL::"; (glab auth status 2>&1 || echo "NOT_AUTHED"); '
+        'echo "::GIT::"; git config --global user.name 2>/dev/null; echo "::GITEMAIL::"; git config --global user.email 2>/dev/null'
+    )
+
+    rc, stdout, stderr = await _run_tart_on_worker(["exec", tart_name, "bash", "-c", cmd_str], worker)
+    output = stdout + stderr
+
+    def _extract(marker, next_marker):
+        start = output.find(marker)
+        if start == -1:
+            return ""
+        start += len(marker)
+        end = output.find(next_marker, start) if next_marker else len(output)
+        return output[start:end].strip() if end != -1 else output[start:].strip()
+
+    gh_output = _extract("::GH::", "::GL::")
+    gl_output = _extract("::GL::", "::GIT::")
+
+    gh_logged_in = "Logged in" in gh_output
+    gl_logged_in = "Logged in" in gl_output
+
+    # Extract account info if logged in (strip file paths like /home/admin/...)
+    gh_account = ""
+    if gh_logged_in:
+        for line in gh_output.split("\n"):
+            if "account" in line.lower():
+                gh_account = re.sub(r"\s*\([/~][^)]*\)", "", line.strip().lstrip("✓").lstrip("-").strip())
+                break
+
+    gl_account = ""
+    if gl_logged_in:
+        for line in gl_output.split("\n"):
+            if "logged in" in line.lower() or "account" in line.lower():
+                gl_account = re.sub(r"\s*\([/~][^)]*\)", "", line.strip().lstrip("✓").lstrip("-").strip())
+                break
+
+    # Extract current git identity from VM
+    git_name = _extract("::GIT::", "::GITEMAIL::").strip()
+    git_email = _extract("::GITEMAIL::", None).strip()
+
+    return {
+        "github": {"authenticated": gh_logged_in, "account": gh_account},
+        "gitlab": {"authenticated": gl_logged_in, "account": gl_account},
+        "git_identity": {"name": git_name, "email": git_email},
+    }
+
+
+# --- Login Status Check (all VMs) ---
+
+_login_cache: Dict[str, Dict] = {}
+_login_cache_file = Path.home() / ".vm-control-center" / "logins-cache.json"
+
+
+def _load_login_cache():
+    global _login_cache
+    if _login_cache_file.exists():
+        try:
+            _login_cache = json.loads(_login_cache_file.read_text())
+        except Exception:
+            _login_cache = {}
+
+
+def _save_login_cache():
+    try:
+        _login_cache_file.parent.mkdir(parents=True, exist_ok=True)
+        _login_cache_file.write_text(json.dumps(_login_cache))
+    except Exception:
+        logger.warning("Failed to save login cache", exc_info=True)
+
+
+_load_login_cache()
+
+_LOGIN_CHECK_CMD = (
+    'export PATH="$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"; '
+    '[ -f "$HOME/.profile" ] && . "$HOME/.profile" 2>/dev/null; '
+    'echo "::GH::"; gh auth status 2>&1 || echo "NOT_AUTHED"; '
+    'echo "::GL::"; glab auth status 2>&1 || echo "NOT_AUTHED"; '
+    'echo "::CLAUDE::"; claude auth status 2>&1 || echo "NOT_AUTHED"; '
+    'echo "::GEMINI::"; '
+    'if test -f ~/.gemini/google_accounts.json; then echo "LOGIN_OK"; '
+    'elif test -f ~/.gemini/settings.json; then echo "LOGIN_OK"; '
+    'else echo "LOGIN_NO"; fi; '
+    'echo "::CODEX::"; '
+    'if test -f ~/.codex/auth.json; then echo "LOGIN_OK"; else echo "LOGIN_NO"; fi; '
+    'echo "::COPILOT::"; '
+    'if test -f ~/.copilot/config.json; then '
+    'grep -q last_logged_in_user ~/.copilot/config.json 2>/dev/null && echo "LOGIN_OK" || echo "LOGIN_NO"; '
+    'else echo "LOGIN_NO"; fi'
+)
+
+
+def _parse_login_output(output: str) -> Dict[str, bool]:
+    markers = ["::GH::", "::GL::", "::CLAUDE::", "::GEMINI::", "::CODEX::", "::COPILOT::"]
+    keys = ["github", "gitlab", "claude", "gemini", "codex", "copilot"]
+
+    def _section(marker, next_marker=None):
+        start = output.find(marker)
+        if start == -1:
+            return ""
+        start += len(marker)
+        if next_marker:
+            end = output.find(next_marker, start)
+            if end == -1:
+                end = len(output)
+        else:
+            end = len(output)
+        return output[start:end].strip()
+
+    sections = {}
+    for i, marker in enumerate(markers):
+        next_m = markers[i + 1] if i + 1 < len(markers) else None
+        sections[keys[i]] = _section(marker, next_m)
+
+    return {
+        "github": "Logged in" in sections["github"],
+        "gitlab": "Logged in" in sections["gitlab"],
+        "claude": (
+            sections["claude"] != ""
+            and "NOT_AUTHED" not in sections["claude"]
+            and "not logged in" not in sections["claude"].lower()
+            and "error" not in sections["claude"].lower()
+        ),
+        "gemini": "LOGIN_OK" in sections["gemini"],
+        "codex": "LOGIN_OK" in sections["codex"],
+        "copilot": "LOGIN_OK" in sections["copilot"],
+    }
+
+
+async def _check_vm_logins(vm_name: str) -> Dict[str, bool]:
+    import shlex
+    tart_name, worker = await task_manager.resolve_tart_name(vm_name)
+    is_local = _is_local_worker(worker)
+    if is_local:
+        cmd = [settings.TART_PATH, "exec", tart_name, "bash", "-c", _LOGIN_CHECK_CMD]
+    else:
+        # For SSH, the command string is interpreted by the remote shell.
+        # shlex.quote wraps the compound command so it arrives intact to bash -c.
+        tart_cmd = f"{settings.REMOTE_TART_PATH} exec {tart_name} bash -c {shlex.quote(_LOGIN_CHECK_CMD)}"
+        cmd = _build_tart_ssh_cmd(worker, tart_cmd)
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+    except asyncio.TimeoutError:
+        proc.kill()
+        return {}
+    output = stdout.decode() + stderr.decode()
+    return _parse_login_output(output)
+
+
+@app.get("/api/logins", dependencies=[Depends(verify_token)])
+async def get_logins():
+    """Return cached login status for all VMs."""
+    return _login_cache
+
+
+@app.get("/api/logins/stream")
+async def stream_login_checks(request: Request, token: str = "", vm: str = ""):
+    """SSE: check logins on running VMs, stream results per VM. Optional vm= to check one."""
+    if not hmac.compare_digest(token, settings.SECRET_KEY):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    async def event_generator():
+        vms = await task_manager.get_inventory()
+        if vm:
+            running_vms = [v for v in vms if v.name == vm and v.status == VMStatus.RUNNING]
+        else:
+            running_vms = [v for v in vms if v.status == VMStatus.RUNNING]
+
+        async def check_one(vm):
+            try:
+                result = await _check_vm_logins(vm.name)
+                _login_cache[vm.name] = {**result, "checked_at": time.time()}
+                return vm.name, result
+            except Exception as e:
+                logger.warning("Login check failed for %s: %s", vm.name, e)
+                return vm.name, None
+
+        tasks = [asyncio.create_task(check_one(vm)) for vm in running_vms]
+
+        for coro in asyncio.as_completed(tasks):
+            if await request.is_disconnected():
+                break
+            vm_name, result = await coro
+            if result is not None:
+                yield f"data: {json.dumps({'vm': vm_name, 'logins': result})}\n\n"
+
+        _save_login_cache()
+        yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # --- Tasks ---
@@ -875,6 +1584,18 @@ AGENTS = {
     },
     "copilot": {
         "name": "GitHub Copilot",
+        "binary": "copilot",
+        "install": "sudo npm install -g @github/copilot",
+        "login": "copilot login",
+        "test": (
+            'copilot --version && echo "---" && '
+            'if test -f ~/.copilot/config.json; then '
+            'cat ~/.copilot/config.json 2>/dev/null; '
+            'else echo "Not logged in"; fi'
+        ),
+    },
+    "github": {
+        "name": "GitHub CLI",
         "binary": "gh",
         "install": (
             "(type -p brew >/dev/null && brew install gh) || "
@@ -886,10 +1607,24 @@ AGENTS = {
             "| sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null "
             "&& sudo apt update && sudo apt install gh -y)"
         ),
-        "login": "gh auth login --web -p https",
+        "login": "gh auth login --web -p https -s repo,read:org,workflow",
         "test": (
             'gh --version && echo "---" && '
             '(gh auth status 2>&1 || echo "Not logged in")'
+        ),
+    },
+    "gitlab": {
+        "name": "GitLab CLI",
+        "binary": "glab",
+        "install": (
+            "(type -p brew >/dev/null && brew install glab) || "
+            "(curl -fsSL https://gitlab.com/gitlab-org/cli/-/releases/permalink/latest/downloads/glab_$(uname -s)_$(uname -m).tar.gz "
+            "| sudo tar -xzf - -C /usr/local/bin glab)"
+        ),
+        "login": "glab auth login",
+        "test": (
+            'glab --version && echo "---" && '
+            '(glab auth status 2>&1 || echo "Not logged in")'
         ),
     },
 }
@@ -1183,57 +1918,6 @@ async def websocket_agent_login(websocket: WebSocket, vm_name: str):
             await websocket.close()
         except Exception:
             pass
-
-
-# --- Pipeline proxy ---
-
-_pipeline_client: Optional[httpx.AsyncClient] = None
-
-
-def _get_pipeline_client() -> httpx.AsyncClient:
-    global _pipeline_client
-    if _pipeline_client is None or _pipeline_client.is_closed:
-        _pipeline_client = httpx.AsyncClient(
-            base_url=settings.PIPELINE_CONTROLLER_URL,
-            timeout=10.0,
-        )
-    return _pipeline_client
-
-
-async def _pipeline_proxy(method: str, path: str, unavailable_fallback=None) -> JSONResponse:
-    """Proxy a request to the pipeline controller with standard error handling."""
-    if unavailable_fallback is None:
-        unavailable_fallback = {"detail": "Pipeline controller unavailable"}
-    if not settings.PIPELINE_CONTROLLER_URL:
-        return JSONResponse(content=unavailable_fallback, status_code=503)
-    try:
-        resp = await _get_pipeline_client().request(method, path)
-        return JSONResponse(content=resp.json(), status_code=resp.status_code)
-    except httpx.ConnectError:
-        return JSONResponse(content=unavailable_fallback, status_code=503)
-    except Exception as e:
-        logger.warning(f"Pipeline proxy error: {e}")
-        return JSONResponse(content={"detail": str(e)}, status_code=502)
-
-
-@app.get("/api/pipeline/runs", dependencies=[Depends(verify_token)])
-async def pipeline_runs():
-    return await _pipeline_proxy("GET", "/api/runs", unavailable_fallback=[])
-
-
-@app.get("/api/pipeline/runs/{run_id}", dependencies=[Depends(verify_token)])
-async def pipeline_run_detail(run_id: str):
-    return await _pipeline_proxy("GET", f"/api/runs/{run_id}")
-
-
-@app.post("/api/pipeline/runs/{run_id}/retry", dependencies=[Depends(verify_token)])
-async def pipeline_retry_run(run_id: str):
-    return await _pipeline_proxy("POST", f"/api/runs/{run_id}/retry")
-
-
-@app.get("/api/pipeline/health", dependencies=[Depends(verify_token)])
-async def pipeline_health():
-    return await _pipeline_proxy("GET", "/api/health", unavailable_fallback={"status": "unreachable"})
 
 
 # --- Frontend ---

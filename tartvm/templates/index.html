@@ -4,11 +4,10 @@
 
 {% block content %}
 <div class="mb-8">
-    <div class="flex justify-between items-center">
+    <div class="flex justify-between items-center toolbar-wrap">
         <div class="flex items-center gap-1">
             <button class="tab active" data-tab="vms">Virtual Machines</button>
             <button class="tab" data-tab="images">Images</button>
-            <button class="tab" data-tab="pipeline">Pipeline</button>
         </div>
         <div class="flex gap-1">
             <button id="refresh-btn" class="icon-btn icon-btn-orange" data-tooltip="Refresh">
@@ -79,57 +78,79 @@
                     <span class="text-sm font-medium text-emphasis">Virtual Machines</span>
                     <span class="text-xs text-secondary">(Orchard managed)</span>
                 </div>
-                <div id="vm-filters" class="flex items-center gap-2">
-                    <div class="vm-filter-dropdown" data-filter-group="type">
-                        <button class="vm-filter-trigger">
-                            <i class="fas fa-filter" style="font-size: 9px; opacity: 0.5;"></i>
-                            <span class="vm-filter-label">Type</span>
-                            <i class="fas fa-chevron-down" style="font-size: 8px; opacity: 0.4;"></i>
-                        </button>
-                        <div class="vm-filter-menu hidden">
-                            <button class="vm-filter-option selected" data-value="all"><i class="fas fa-check"></i>All</button>
-                            <button class="vm-filter-option" data-value="claw"><i class="fas fa-check"></i>claw-*</button>
-                            <button class="vm-filter-option" data-value="infra"><i class="fas fa-check"></i>infra-*</button>
-                        </div>
-                    </div>
-                    <div class="vm-filter-dropdown" data-filter-group="os">
-                        <button class="vm-filter-trigger">
-                            <i class="fas fa-filter" style="font-size: 9px; opacity: 0.5;"></i>
-                            <span class="vm-filter-label">OS</span>
-                            <i class="fas fa-chevron-down" style="font-size: 8px; opacity: 0.4;"></i>
-                        </button>
-                        <div class="vm-filter-menu hidden">
-                            <button class="vm-filter-option selected" data-value="all"><i class="fas fa-check"></i>All</button>
-                            <button class="vm-filter-option" data-value="macOS"><i class="fas fa-check"></i>macOS</button>
-                            <button class="vm-filter-option" data-value="Linux"><i class="fas fa-check"></i>Linux</button>
-                        </div>
-                    </div>
-                    <div class="vm-filter-dropdown" data-filter-group="worker">
-                        <button class="vm-filter-trigger">
-                            <i class="fas fa-filter" style="font-size: 9px; opacity: 0.5;"></i>
-                            <span class="vm-filter-label">Worker</span>
-                            <i class="fas fa-chevron-down" style="font-size: 8px; opacity: 0.4;"></i>
-                        </button>
-                        <div class="vm-filter-menu hidden" id="filter-worker-menu">
-                            <button class="vm-filter-option selected" data-value="all"><i class="fas fa-check"></i>All</button>
-                        </div>
-                    </div>
+                <div class="flex items-center gap-1">
+                    <button id="check-logins-btn" class="icon-btn icon-btn-neutral" data-tooltip="Check Logins" onclick="checkLogins()">
+                        <i class="fas fa-fingerprint" style="font-size: 11px;"></i>
+                    </button>
+                    <button id="bulk-start-btn" class="icon-btn icon-btn-green" data-tooltip="Start All">
+                        <i class="fas fa-play" style="font-size: 11px;"></i>
+                    </button>
+                    <button id="bulk-restart-btn" class="icon-btn icon-btn-blue" data-tooltip="Restart All">
+                        <i class="fas fa-redo" style="font-size: 11px;"></i>
+                    </button>
+                    <button id="bulk-snapshot-btn" class="icon-btn icon-btn-neutral" data-tooltip="Snapshot All">
+                        <i class="fas fa-camera" style="font-size: 11px;"></i>
+                    </button>
+                    <button id="global-snapshots-btn" class="icon-btn icon-btn-neutral" data-tooltip="Manage Snapshots">
+                        <i class="fas fa-layer-group" style="font-size: 11px;"></i>
+                    </button>
                 </div>
             </div>
             <div id="vms-table" class="hidden overflow-x-auto">
                 <table class="dark-table">
                     <thead>
                         <tr>
-                            <th style="width: 14%;">Name</th>
-                            <th style="width: 90px;">Status</th>
-                            <th style="width: 70px;">OS</th>
-                            <th style="width: 130px;">Worker</th>
-                            <th style="width: 120px;">Tailscale IP</th>
+                            <th data-sort="name" class="th-sortable" style="width: 14%;">
+                                <div class="th-content">
+                                    <span>Name</span>
+                                    <i class="fas fa-sort-up th-sort-icon active"></i>
+                                    <div class="th-filter-wrap" data-filter-group="type">
+                                        <button class="th-filter-btn" onclick="event.stopPropagation()"><i class="fas fa-filter"></i></button>
+                                        <div class="th-filter-menu hidden">
+                                            <button class="th-filter-opt selected" data-value="all"><i class="fas fa-check"></i>All</button>
+                                            <button class="th-filter-opt" data-value="claw"><i class="fas fa-check"></i>claw-*</button>
+                                            <button class="th-filter-opt" data-value="infra"><i class="fas fa-check"></i>infra-*</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </th>
+                            <th style="width: 80px;">Status</th>
+                            <th data-sort="os" class="th-sortable" style="width: 60px;">
+                                <div class="th-content">
+                                    <span>OS</span>
+                                    <i class="fas fa-sort th-sort-icon"></i>
+                                    <div class="th-filter-wrap" data-filter-group="os">
+                                        <button class="th-filter-btn" onclick="event.stopPropagation()"><i class="fas fa-filter"></i></button>
+                                        <div class="th-filter-menu hidden">
+                                            <button class="th-filter-opt selected" data-value="all"><i class="fas fa-check"></i>All</button>
+                                            <button class="th-filter-opt" data-value="macOS"><i class="fas fa-check"></i>macOS</button>
+                                            <button class="th-filter-opt" data-value="Linux"><i class="fas fa-check"></i>Linux</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </th>
+                            <th data-sort="worker" class="th-sortable col-worker" style="width: 110px;">
+                                <div class="th-content">
+                                    <span>Worker</span>
+                                    <i class="fas fa-sort th-sort-icon"></i>
+                                    <div class="th-filter-wrap" data-filter-group="worker">
+                                        <button class="th-filter-btn" onclick="event.stopPropagation()"><i class="fas fa-filter"></i></button>
+                                        <div class="th-filter-menu hidden" id="filter-worker-menu">
+                                            <button class="th-filter-opt selected" data-value="all"><i class="fas fa-check"></i>All</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="col-tsip" style="width: 110px;">Tailscale IP</th>
                             <th>URLs</th>
-                            <th style="width: 60px;">CPU</th>
-                            <th style="width: 80px;">Memory</th>
-                            <th style="width: 90px;">Restart</th>
-                            <th style="width: 160px; text-align: right;">Actions</th>
+                            <th class="col-logins" style="width: 130px;">Logins</th>
+                            <th data-sort="cpu" class="th-sortable" style="width: 50px;"><div class="th-content"><span>CPU</span><i class="fas fa-sort th-sort-icon"></i></div></th>
+                            <th data-sort="memory" class="th-sortable" style="width: 60px;"><div class="th-content"><span>Memory</span><i class="fas fa-sort th-sort-icon"></i></div></th>
+                            <th data-sort="storage" class="th-sortable col-storage" style="width: 60px;"><div class="th-content"><span>Storage</span><i class="fas fa-sort th-sort-icon"></i></div></th>
+                            <th class="col-restart" style="width: 70px;">Restart</th>
+                            <th style="width: 120px; text-align: right;">Actions</th>
+                            <th style="width: 100px; text-align: right;">Snapshot</th>
+                            <th class="col-manage" style="width: 70px; text-align: right;">Manage</th>
                         </tr>
                     </thead>
                     <tbody id="vms-list"></tbody>
@@ -186,73 +207,6 @@
         </div>
     </div><!-- /tab-images -->
 
-    <!-- Pipeline Tab -->
-    <div id="tab-pipeline" class="hidden">
-        <div id="pipeline-loading" class="mt-4 p-8 text-center surface rounded-lg hidden">
-            <div class="spinner h-7 w-7 mx-auto"></div>
-            <p class="mt-3 text-sm text-secondary">Loading pipeline data...</p>
-        </div>
-
-        <div id="pipeline-error" class="hidden mt-4 p-8 text-center surface rounded-lg">
-            <i class="fas fa-plug text-3xl text-secondary mb-3 block"></i>
-            <h3 class="text-sm font-medium text-emphasis">Pipeline Controller Unreachable</h3>
-            <p class="mt-1 text-xs text-secondary">Cannot connect to the pipeline controller.</p>
-        </div>
-
-        <div id="pipeline-content" class="hidden">
-            <!-- Stuck Runs Banner -->
-            <div id="pipeline-stuck-banner" class="hidden mt-4 pipeline-stuck-banner">
-                <div class="flex items-center gap-2 mb-2">
-                    <i class="fas fa-exclamation-triangle" style="color: #fde047; font-size: 12px;"></i>
-                    <span class="text-xs font-medium" style="color: #fde047;">Stuck Runs Detected</span>
-                </div>
-                <div id="pipeline-stuck-list" class="text-xs text-secondary"></div>
-            </div>
-
-            <!-- Stats Bar -->
-            <div id="pipeline-stats" class="mt-4 pipeline-stats"></div>
-
-            <!-- Runs Table -->
-            <div class="mt-4 surface rounded-lg" style="border-color: rgba(59, 130, 246, 0.2);">
-                <div style="padding: 12px 16px; border-bottom: 1px solid var(--border);" class="flex items-center gap-3">
-                    <i class="fas fa-code-branch" style="color: #60a5fa;"></i>
-                    <span class="text-sm font-medium text-emphasis">Pipeline Runs</span>
-                    <span id="pipeline-runs-count" class="text-xs text-secondary"></span>
-                </div>
-                <div id="pipeline-runs-table" class="overflow-x-auto">
-                    <table class="dark-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 30px;"></th>
-                                <th>Issue</th>
-                                <th>Project</th>
-                                <th style="width: 140px;">State</th>
-                                <th>Branch</th>
-                                <th style="width: 60px;">PR</th>
-                                <th style="width: 140px;">Started</th>
-                                <th style="width: 100px;">Duration</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pipeline-runs-list"></tbody>
-                    </table>
-                </div>
-                <div id="pipeline-runs-empty" class="p-6 text-center text-sm text-secondary">
-                    No pipeline runs found.
-                </div>
-            </div>
-
-            <!-- Controller Health -->
-            <div class="mt-4 surface rounded-lg">
-                <div style="padding: 12px 16px; border-bottom: 1px solid var(--border);" class="flex items-center gap-3">
-                    <i class="fas fa-heartbeat" style="color: #4ade80;"></i>
-                    <span class="text-sm font-medium text-emphasis">Controller Health</span>
-                </div>
-                <div id="pipeline-health" style="padding: 12px 16px;" class="text-xs text-secondary">
-                    Checking...
-                </div>
-            </div>
-        </div>
-    </div><!-- /tab-pipeline -->
 
 </div>
 
@@ -284,6 +238,66 @@
                         <p class="mt-1 text-xs text-secondary">Required scope: <code>read:packages</code></p>
                     </div>
                     <div id="token-status" class="hidden"></div>
+                </div>
+
+                <!-- Git Profiles Section -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-xs font-medium text-emphasis">Git Profiles</h4>
+                        <button type="button" id="git-profile-add-btn" class="icon-btn icon-btn-green" style="width: 22px; height: 22px;" data-tooltip="Add Profile">
+                            <i class="fas fa-plus" style="font-size: 9px;"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-secondary mb-3">Define credential sets (SSH keys, identity) to push to VMs.</p>
+
+                    <div id="git-profiles-list" class="space-y-2 mb-3"></div>
+
+                    <!-- Inline add/edit form (hidden by default) -->
+                    <div id="git-profile-form" class="hidden surface rounded-lg p-4 space-y-2">
+                        <input type="hidden" id="git-profile-edit-id">
+                        <div>
+                            <label class="label block mb-1">Label</label>
+                            <input type="text" id="git-profile-label" class="input" placeholder="e.g. TwiceD GitHub">
+                        </div>
+                        <div>
+                            <label class="label block mb-1">Host</label>
+                            <div class="flex gap-2">
+                                <select id="git-profile-host-select" class="select" style="width: 50%;" onchange="if(this.value!=='custom'){document.getElementById('git-profile-host').value=this.value;}document.getElementById('git-profile-host').classList.toggle('hidden',this.value!=='custom');">
+                                    <option value="github.com">github.com</option>
+                                    <option value="gitlab.com">gitlab.com</option>
+                                    <option value="custom">Custom...</option>
+                                </select>
+                                <input type="text" id="git-profile-host" class="input hidden" placeholder="git.example.com" style="width: 50%;">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="label block mb-1">Name</label>
+                                <input type="text" id="git-profile-name" class="input" placeholder="Your Name">
+                            </div>
+                            <div>
+                                <label class="label block mb-1">Email</label>
+                                <input type="email" id="git-profile-email" class="input" placeholder="you@example.com">
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="label">SSH Private Key</label>
+                                <button type="button" class="icon-btn icon-btn-neutral" style="width: 22px; height: 22px;" data-tooltip="Show/Hide" onclick="toggleSecretField('git-profile-ssh-key', this)">
+                                    <i class="fas fa-eye" style="font-size: 9px;"></i>
+                                </button>
+                            </div>
+                            <textarea id="git-profile-ssh-key" class="input font-mono text-xs secret-textarea" rows="3" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" style="resize: vertical;"></textarea>
+                        </div>
+                        <div class="flex justify-end gap-1 pt-1">
+                            <button type="button" class="icon-btn icon-btn-neutral" style="width: 22px; height: 22px;" data-tooltip="Cancel" onclick="hideGitProfileForm()">
+                                <i class="fas fa-times" style="font-size: 9px;"></i>
+                            </button>
+                            <button type="button" class="icon-btn icon-btn-blue" style="width: 22px; height: 22px;" data-tooltip="Save" onclick="saveGitProfile()">
+                                <i class="fas fa-check" style="font-size: 9px;"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer px-6 py-3 flex justify-end gap-2">
@@ -445,10 +459,13 @@
                 <div id="agent-select-panel">
                     <p class="text-xs text-secondary mb-3">Select a coding agent (auto-installs if missing):</p>
                     <div class="grid grid-cols-2 gap-2">
-                        <div class="surface rounded-lg p-3 flex items-center justify-between">
-                            <div>
-                                <span class="text-xs font-medium text-emphasis">Claude Code</span>
-                                <span class="text-xs text-secondary block mt-1 font-mono">claude auth login</span>
+                        <div class="surface rounded-lg p-3 flex items-center justify-between" data-agent-card="claude">
+                            <div class="flex items-center gap-2">
+                                <span id="agent-status-claude" class="inline-block w-2 h-2 rounded-full" style="background: var(--border); flex-shrink: 0;"></span>
+                                <div>
+                                    <span class="text-xs font-medium text-emphasis">Claude Code</span>
+                                    <span class="text-xs text-secondary block mt-1 font-mono">claude auth login</span>
+                                </div>
                             </div>
                             <div class="flex gap-1">
                                 <button class="icon-btn icon-btn-purple" data-tooltip="Login" onclick="startAgentLogin(agentLoginVmName, 'claude', 'login')">
@@ -459,10 +476,13 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="surface rounded-lg p-3 flex items-center justify-between">
-                            <div>
-                                <span class="text-xs font-medium text-emphasis">Codex</span>
-                                <span class="text-xs text-secondary block mt-1 font-mono">codex auth login</span>
+                        <div class="surface rounded-lg p-3 flex items-center justify-between" data-agent-card="codex">
+                            <div class="flex items-center gap-2">
+                                <span id="agent-status-codex" class="inline-block w-2 h-2 rounded-full" style="background: var(--border); flex-shrink: 0;"></span>
+                                <div>
+                                    <span class="text-xs font-medium text-emphasis">Codex</span>
+                                    <span class="text-xs text-secondary block mt-1 font-mono">codex auth login</span>
+                                </div>
                             </div>
                             <div class="flex gap-1">
                                 <button class="icon-btn icon-btn-purple" data-tooltip="Login" onclick="startAgentLogin(agentLoginVmName, 'codex', 'login')">
@@ -473,10 +493,13 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="surface rounded-lg p-3 flex items-center justify-between">
-                            <div>
-                                <span class="text-xs font-medium text-emphasis">Gemini CLI</span>
-                                <span class="text-xs text-secondary block mt-1 font-mono">gemini auth login</span>
+                        <div class="surface rounded-lg p-3 flex items-center justify-between" data-agent-card="gemini">
+                            <div class="flex items-center gap-2">
+                                <span id="agent-status-gemini" class="inline-block w-2 h-2 rounded-full" style="background: var(--border); flex-shrink: 0;"></span>
+                                <div>
+                                    <span class="text-xs font-medium text-emphasis">Gemini CLI</span>
+                                    <span class="text-xs text-secondary block mt-1 font-mono">gemini auth login</span>
+                                </div>
                             </div>
                             <div class="flex gap-1">
                                 <button class="icon-btn icon-btn-purple" data-tooltip="Login" onclick="startAgentLogin(agentLoginVmName, 'gemini', 'login')">
@@ -487,10 +510,13 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="surface rounded-lg p-3 flex items-center justify-between">
-                            <div>
-                                <span class="text-xs font-medium text-emphasis">GitHub Copilot</span>
-                                <span class="text-xs text-secondary block mt-1 font-mono">gh auth login --web</span>
+                        <div class="surface rounded-lg p-3 flex items-center justify-between" data-agent-card="copilot">
+                            <div class="flex items-center gap-2">
+                                <span id="agent-status-copilot" class="inline-block w-2 h-2 rounded-full" style="background: var(--border); flex-shrink: 0;"></span>
+                                <div>
+                                    <span class="text-xs font-medium text-emphasis">GitHub Copilot</span>
+                                    <span class="text-xs text-secondary block mt-1 font-mono">gh auth login --web</span>
+                                </div>
                             </div>
                             <div class="flex gap-1">
                                 <button class="icon-btn icon-btn-purple" data-tooltip="Login" onclick="startAgentLogin(agentLoginVmName, 'copilot', 'login')">
@@ -523,6 +549,90 @@
     </div>
 </div>
 
+<!-- VM Config Modal -->
+<div id="vm-config-modal" class="fixed z-10 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 modal-backdrop" aria-hidden="true"></div>
+        <div class="relative modal-dialog w-full max-w-lg">
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-5">
+                    <div class="flex items-center justify-center w-8 h-8 rounded" style="background: rgba(96, 165, 250, 0.12);">
+                        <i class="fas fa-code-branch" style="color: #60a5fa; font-size: 13px;"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-emphasis" id="vm-config-title">Git Config</h3>
+                </div>
+                <div id="vm-config-loading" class="text-center py-6">
+                    <div class="spinner h-5 w-5 mx-auto"></div>
+                    <p class="mt-2 text-xs text-secondary">Loading...</p>
+                </div>
+                <div id="vm-config-content" class="hidden">
+
+                    <!-- ─── Section 1: Identity ─── -->
+                    <div style="margin-bottom: 20px;">
+                        <div class="text-xs font-medium text-emphasis" style="margin-bottom: 10px;">Identity</div>
+
+                        <!-- Current identity status card -->
+                        <div id="vm-config-identity-card" class="surface rounded-lg" style="padding: 12px 14px;">
+                            <div class="flex items-center gap-3">
+                                <div class="spinner" style="width: 14px; height: 14px; border-width: 2px; flex-shrink: 0;"></div>
+                                <span class="text-xs text-secondary">Checking VM identity...</span>
+                            </div>
+                        </div>
+
+                        <!-- Profile selector (hidden when identity is set) -->
+                        <div id="vm-config-profiles-section" class="hidden" style="margin-top: 10px;">
+                            <p class="text-xs text-secondary" style="margin-bottom: 8px;">Select a profile to apply:</p>
+                            <div id="vm-config-profiles" class="space-y-2"></div>
+                            <p class="text-xs text-secondary mt-2">Manage profiles in <a href="#" class="accent-link" onclick="event.preventDefault();hideModal(document.getElementById('vm-config-modal'));document.getElementById('settings-btn').click();">Settings</a> <i class="fas fa-cog" style="font-size: 8px; color: #c084fc;"></i></p>
+                        </div>
+                        <p id="vm-config-no-profiles" class="hidden text-xs text-secondary" style="margin-top: 10px;">No profiles yet. <a href="#" class="accent-link" onclick="event.preventDefault();hideModal(document.getElementById('vm-config-modal'));document.getElementById('settings-btn').click();">Create one in Settings</a> <i class="fas fa-cog" style="font-size: 8px; color: #c084fc;"></i></p>
+                    </div>
+
+                    <!-- ─── Section 2: Authentication ─── -->
+                    <div>
+                        <div class="text-xs font-medium text-emphasis" style="margin-bottom: 10px;">Authentication</div>
+
+                        <div class="surface rounded-lg" style="overflow: hidden;">
+                            <div class="flex items-center justify-between" style="padding: 10px 14px; border-bottom: 1px solid var(--border-subtle);">
+                                <div class="flex items-center gap-3" style="min-width: 0; flex: 1;">
+                                    <i class="fab fa-github" style="font-size: 16px; color: #e6edf3; flex-shrink: 0;"></i>
+                                    <div style="min-width: 0; flex: 1;">
+                                        <div class="text-xs font-medium text-emphasis">GitHub</div>
+                                        <div id="vm-config-gh-cli-status" class="text-xs text-secondary" style="overflow: hidden; text-overflow: ellipsis;">checking...</div>
+                                    </div>
+                                </div>
+                                <button id="vm-config-gh-login-btn" class="btn btn-neutral" style="flex-shrink: 0; margin-left: 12px;" onclick="startGitCliLogin('github')">Login</button>
+                            </div>
+                            <div class="flex items-center justify-between" style="padding: 10px 14px;">
+                                <div class="flex items-center gap-3" style="min-width: 0; flex: 1;">
+                                    <i class="fab fa-gitlab" style="font-size: 16px; color: #fc6d26; flex-shrink: 0;"></i>
+                                    <div style="min-width: 0; flex: 1;">
+                                        <div class="text-xs font-medium text-emphasis">GitLab</div>
+                                        <div id="vm-config-gl-cli-status" class="text-xs text-secondary" style="overflow: hidden; text-overflow: ellipsis;">checking...</div>
+                                    </div>
+                                </div>
+                                <button id="vm-config-gl-login-btn" class="btn btn-neutral" style="flex-shrink: 0; margin-left: 12px;" onclick="startGitCliLogin('gitlab')">Login</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="vm-config-result" class="hidden mt-3">
+                        <pre id="vm-config-result-output" class="log-terminal text-xs p-3 rounded overflow-y-auto" style="max-height: 200px; white-space: pre-wrap; color: var(--text-primary);"></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer px-6 py-3 flex justify-end gap-2">
+                <button type="button" id="vm-config-close-btn" class="icon-btn icon-btn-neutral" data-tooltip="Close">
+                    <i class="fas fa-times" style="font-size: 11px;"></i>
+                </button>
+                <button type="button" id="vm-config-apply-btn" class="icon-btn icon-btn-green hidden" data-tooltip="Apply Selected">
+                    <i class="fas fa-check" style="font-size: 11px;"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Task Logs Modal -->
 <div id="task-logs-modal" class="fixed z-10 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
     <div class="flex items-center justify-center min-h-screen p-4">
@@ -546,6 +656,112 @@
     </div>
 </div>
 
+<!-- Recreate from Snapshot Modal -->
+<div id="snapshot-modal" class="fixed z-10 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 modal-backdrop" aria-hidden="true"></div>
+        <div class="relative modal-dialog w-full max-w-lg">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-8 h-8 rounded" style="background: rgba(20, 184, 166, 0.15);">
+                            <i class="fas fa-history" style="color: #2dd4bf; font-size: 13px;"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-emphasis" id="snapshot-modal-title">Recreate from Snapshot</h3>
+                    </div>
+                </div>
+                <div id="snapshot-list" class="flex flex-col gap-2" style="max-height: 50vh; overflow-y: auto;">
+                    <div class="text-secondary text-xs">Loading snapshots...</div>
+                </div>
+            </div>
+            <div class="modal-footer px-6 py-3 flex justify-end gap-2">
+                <button type="button" id="snapshot-cancel-btn" class="icon-btn icon-btn-neutral" data-tooltip="Cancel">
+                    <i class="fas fa-times" style="font-size: 11px;"></i>
+                </button>
+                <button type="button" id="snapshot-confirm-btn" class="icon-btn icon-btn-teal" data-tooltip="Recreate" disabled>
+                    <i class="fas fa-check" style="font-size: 11px;"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Manage Snapshots Modal -->
+<div id="manage-snapshots-modal" class="fixed z-10 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 modal-backdrop" aria-hidden="true"></div>
+        <div class="relative modal-dialog w-full max-w-lg">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-8 h-8 rounded" style="background: rgba(168, 85, 247, 0.15);">
+                            <i class="fas fa-layer-group" style="color: #c084fc; font-size: 13px;"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-emphasis" id="manage-snapshots-title">Snapshots</h3>
+                    </div>
+                    <span id="manage-snapshots-count" class="text-xs text-secondary"></span>
+                </div>
+                <div id="manage-snapshots-list" class="flex flex-col gap-2" style="max-height: 50vh; overflow-y: auto;">
+                    <div class="text-secondary text-xs">Loading snapshots...</div>
+                </div>
+            </div>
+            <div class="modal-footer px-6 py-3 flex justify-end gap-2">
+                <button type="button" id="manage-snapshots-close-btn" class="icon-btn icon-btn-neutral" data-tooltip="Close">
+                    <i class="fas fa-times" style="font-size: 11px;"></i>
+                </button>
+                <button type="button" id="manage-snapshots-delete-btn" class="icon-btn icon-btn-red" data-tooltip="Delete Selected" disabled>
+                    <i class="fas fa-trash" style="font-size: 11px;"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Global Snapshots Modal -->
+<div id="global-snapshots-modal" class="fixed z-10 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 modal-backdrop" aria-hidden="true"></div>
+        <div class="relative modal-dialog w-full max-w-2xl">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-8 h-8 rounded" style="background: rgba(168, 85, 247, 0.15);">
+                            <i class="fas fa-layer-group" style="color: #c084fc; font-size: 13px;"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-emphasis">All Snapshots</h3>
+                    </div>
+                    <span id="global-snap-count" class="text-xs text-secondary"></span>
+                </div>
+                <div class="flex items-center gap-2 mb-3 flex-wrap">
+                    <button class="snap-filter-btn active" data-snap-filter="all">All</button>
+                    <button class="snap-filter-btn" data-snap-filter="base">Base</button>
+                    <button class="snap-filter-btn" data-snap-filter="daily">Daily</button>
+                    <button class="snap-filter-btn" data-snap-filter="manual">Manual</button>
+                    <button class="snap-filter-btn" data-snap-filter="hourly">Hourly</button>
+                    <button class="snap-filter-btn" data-snap-filter="other">Other</button>
+                    <span style="flex: 1;"></span>
+                    <button id="global-snap-select-all" class="text-xs" style="color: #60a5fa; background: none; border: none; cursor: pointer;">Select all</button>
+                    <button id="global-snap-select-none" class="text-xs" style="color: var(--text-secondary); background: none; border: none; cursor: pointer;">Clear</button>
+                </div>
+                <div id="global-snap-list" class="flex flex-col gap-1" style="max-height: 55vh; overflow-y: auto;">
+                    <div class="text-secondary text-xs">Loading...</div>
+                </div>
+            </div>
+            <div class="modal-footer px-6 py-3 flex items-center justify-between">
+                <span id="global-snap-selected" class="text-xs text-secondary"></span>
+                <div class="flex gap-2">
+                    <button type="button" id="global-snap-close-btn" class="icon-btn icon-btn-neutral" data-tooltip="Close">
+                        <i class="fas fa-times" style="font-size: 11px;"></i>
+                    </button>
+                    <button type="button" id="global-snap-delete-btn" class="icon-btn icon-btn-red" data-tooltip="Delete Selected" disabled>
+                        <i class="fas fa-trash" style="font-size: 11px;"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -559,11 +775,57 @@
     let servicesLoaded = false;
     let tailscalePeers = {};
     let tailscaleLoaded = false;
+    let loginData = {};
+    let loginCheckInProgress = false;
     let hostsData = [];
     let vmFilters = { type: 'all', os: 'all', worker: 'all' };
+    let vmSort = { column: 'name', direction: 'asc' };
+
+    function updateSortIcons() {
+        document.querySelectorAll('.th-sortable').forEach(th => {
+            const icon = th.querySelector('.th-sort-icon');
+            if (!icon) return;
+            if (th.dataset.sort === vmSort.column) {
+                icon.className = `fas ${vmSort.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down'} th-sort-icon active`;
+            } else {
+                icon.className = 'fas fa-sort th-sort-icon';
+            }
+        });
+    }
+
+    const nameGroupOrder = ['claw-plan-', 'claw-', 'infra-'];
+    function getNameGroup(name) {
+        for (let i = 0; i < nameGroupOrder.length; i++) {
+            if (name.startsWith(nameGroupOrder[i])) return i;
+        }
+        return nameGroupOrder.length;
+    }
+
+    function sortVMs(vms) {
+        const { column, direction } = vmSort;
+        const mult = direction === 'asc' ? 1 : -1;
+        return [...vms].sort((a, b) => {
+            let va, vb;
+            switch (column) {
+                case 'name':
+                    const ga = getNameGroup(a.name || '');
+                    const gb = getNameGroup(b.name || '');
+                    if (ga !== gb) return mult * (ga - gb);
+                    return mult * (a.name || '').localeCompare(b.name || '');
+                case 'os': va = a.os || ''; vb = b.os || ''; break;
+                case 'worker': va = a.worker || ''; vb = b.worker || ''; break;
+                case 'cpu': return mult * ((a.cpu || 0) - (b.cpu || 0));
+                case 'memory': return mult * ((a.memory || 0) - (b.memory || 0));
+                case 'storage': return mult * ((a.disk_size || 0) - (b.disk_size || 0));
+                default: return 0;
+            }
+            return mult * va.localeCompare(vb);
+        });
+    }
+
     let activeTab = 'vms';
 
-    const nameColors = { 'claw-': '#22d3ee', 'infra-': '#f472b6' };
+    const nameColors = { 'claw-plan-': '#a78bfa', 'claw-': '#22d3ee', 'infra-': '#f472b6' };
 
     let eventSource = null;
 
@@ -624,6 +886,32 @@
     const promptCloseBtn = document.getElementById('prompt-close-btn');
     const promptCopiedBadge = document.getElementById('prompt-copied-badge');
 
+    const snapshotModal = document.getElementById('snapshot-modal');
+    const snapshotModalTitle = document.getElementById('snapshot-modal-title');
+    const snapshotList = document.getElementById('snapshot-list');
+    const snapshotCancelBtn = document.getElementById('snapshot-cancel-btn');
+    const snapshotConfirmBtn = document.getElementById('snapshot-confirm-btn');
+
+    const manageSnapshotsModal = document.getElementById('manage-snapshots-modal');
+    const manageSnapshotsTitle = document.getElementById('manage-snapshots-title');
+    const manageSnapshotsCount = document.getElementById('manage-snapshots-count');
+    const manageSnapshotsList = document.getElementById('manage-snapshots-list');
+    const manageSnapshotsCloseBtn = document.getElementById('manage-snapshots-close-btn');
+    const manageSnapshotsDeleteBtn = document.getElementById('manage-snapshots-delete-btn');
+
+    const bulkStartBtn = document.getElementById('bulk-start-btn');
+    const bulkRestartBtn = document.getElementById('bulk-restart-btn');
+    const bulkSnapshotBtn = document.getElementById('bulk-snapshot-btn');
+    const globalSnapshotsBtn = document.getElementById('global-snapshots-btn');
+    const globalSnapModal = document.getElementById('global-snapshots-modal');
+    const globalSnapList = document.getElementById('global-snap-list');
+    const globalSnapCount = document.getElementById('global-snap-count');
+    const globalSnapSelected = document.getElementById('global-snap-selected');
+    const globalSnapCloseBtn = document.getElementById('global-snap-close-btn');
+    const globalSnapDeleteBtn = document.getElementById('global-snap-delete-btn');
+    const globalSnapSelectAll = document.getElementById('global-snap-select-all');
+    const globalSnapSelectNone = document.getElementById('global-snap-select-none');
+
     // Event listeners
     document.addEventListener('DOMContentLoaded', () => {
         // Tab switching
@@ -634,18 +922,12 @@
                 tab.classList.add('active');
                 document.getElementById('tab-vms').classList.toggle('hidden', activeTab !== 'vms');
                 document.getElementById('tab-images').classList.toggle('hidden', activeTab !== 'images');
-                document.getElementById('tab-pipeline').classList.toggle('hidden', activeTab !== 'pipeline');
-                if (activeTab === 'pipeline') {
-                    loadPipelineData();
-                    startPipelinePolling();
-                } else {
-                    stopPipelinePolling();
-                }
             });
         });
 
         loadServices();
         loadTailscalePeers();
+        loadCachedLogins();
         connectEventSource();
 
         startActiveTasksPolling();
@@ -653,51 +935,58 @@
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 stopActiveTasksPolling();
-                stopPipelinePolling();
             } else {
                 startActiveTasksPolling();
                 refreshActiveTasks();
                 if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
                     connectEventSource();
                 }
-                if (activeTab === 'pipeline') {
-                    loadPipelineData();
-                    startPipelinePolling();
-                }
             }
         });
 
         document.getElementById('refresh-btn').addEventListener('click', loadVMs);
 
-        // Custom filter dropdowns
-        document.querySelectorAll('.vm-filter-trigger').forEach(trigger => {
-            trigger.addEventListener('click', (e) => {
+        // Column header sorting
+        document.querySelectorAll('.th-sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const col = th.dataset.sort;
+                if (vmSort.column === col) {
+                    vmSort.direction = vmSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    vmSort.column = col;
+                    vmSort.direction = 'asc';
+                }
+                updateSortIcons();
+                if (lastVMs) renderVMs(lastVMs);
+            });
+        });
+
+        // Column header filter dropdowns
+        document.querySelectorAll('.th-filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const menu = trigger.nextElementSibling;
+                const wrap = btn.closest('.th-filter-wrap');
+                const menu = wrap.querySelector('.th-filter-menu');
                 const wasOpen = !menu.classList.contains('hidden');
-                document.querySelectorAll('.vm-filter-menu').forEach(m => m.classList.add('hidden'));
+                document.querySelectorAll('.th-filter-menu').forEach(m => m.classList.add('hidden'));
                 if (!wasOpen) menu.classList.remove('hidden');
             });
         });
         document.addEventListener('click', () => {
-            document.querySelectorAll('.vm-filter-menu').forEach(m => m.classList.add('hidden'));
+            document.querySelectorAll('.th-filter-menu').forEach(m => m.classList.add('hidden'));
         });
-        document.querySelectorAll('.vm-filter-menu').forEach(menu => {
+        document.querySelectorAll('.th-filter-menu').forEach(menu => {
             menu.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const opt = e.target.closest('.vm-filter-option');
+                const opt = e.target.closest('.th-filter-opt');
                 if (!opt) return;
-                const dropdown = menu.closest('.vm-filter-dropdown');
-                const group = dropdown.dataset.filterGroup;
+                const wrap = menu.closest('.th-filter-wrap');
+                const group = wrap.dataset.filterGroup;
                 vmFilters[group] = opt.dataset.value;
-                menu.querySelectorAll('.vm-filter-option').forEach(o => o.classList.remove('selected'));
+                menu.querySelectorAll('.th-filter-opt').forEach(o => o.classList.remove('selected'));
                 opt.classList.add('selected');
                 menu.classList.add('hidden');
-                // Update trigger label if filtered
-                const label = dropdown.querySelector('.vm-filter-label');
-                const isFiltered = opt.dataset.value !== 'all';
-                label.textContent = isFiltered ? opt.textContent.trim() : group.charAt(0).toUpperCase() + group.slice(1);
-                dropdown.classList.toggle('is-filtered', isFiltered);
+                wrap.querySelector('.th-filter-btn').classList.toggle('is-filtered', opt.dataset.value !== 'all');
                 if (lastVMs) renderVMs(lastVMs);
             });
         });
@@ -713,7 +1002,7 @@
             const vmName = vmElement.dataset.vm;
             if (vmName && action) {
                 // Show spinner on the button for start/stop/restart
-                if (['start', 'stop', 'restart'].includes(action)) {
+                if (['start', 'stop', 'restart', 'snapshot'].includes(action)) {
                     const icon = button.querySelector('i');
                     if (icon) {
                         icon.className = 'fas fa-spinner fa-spin';
@@ -728,6 +1017,7 @@
         settingsBtn.addEventListener('click', () => {
             showModal(settingsModal);
             loadGitHubTokenStatus();
+            loadGitProfiles();
         });
         settingsCancelBtn.addEventListener('click', () => hideModal(settingsModal));
         settingsSaveBtn.addEventListener('click', handleSaveGitHubToken);
@@ -756,6 +1046,19 @@
 
         promptCloseBtn.addEventListener('click', () => hideModal(promptModal));
         promptCopyBtn.addEventListener('click', handleCopyPrompt);
+        snapshotCancelBtn.addEventListener('click', () => hideModal(snapshotModal));
+        snapshotConfirmBtn.addEventListener('click', handleSnapshotConfirm);
+        manageSnapshotsCloseBtn.addEventListener('click', () => hideModal(manageSnapshotsModal));
+        manageSnapshotsDeleteBtn.addEventListener('click', handleDeleteSelectedSnapshots);
+
+        bulkStartBtn.addEventListener('click', () => handleBulkAction('start'));
+        bulkRestartBtn.addEventListener('click', () => handleBulkAction('restart'));
+        bulkSnapshotBtn.addEventListener('click', () => handleBulkAction('snapshot'));
+        globalSnapshotsBtn.addEventListener('click', showGlobalSnapshotsModal);
+        globalSnapCloseBtn.addEventListener('click', () => hideModal(globalSnapModal));
+        globalSnapDeleteBtn.addEventListener('click', handleGlobalSnapDelete);
+        globalSnapSelectAll.addEventListener('click', () => toggleGlobalSnapCheckboxes(true));
+        globalSnapSelectNone.addEventListener('click', () => toggleGlobalSnapCheckboxes(false));
 
         closeLogsBtn.addEventListener('click', () => {
             hideModal(taskLogsModal);
@@ -788,6 +1091,83 @@
             servicesLoaded = true;
             if (lastVMs) renderVMs(lastVMs);
         }
+    }
+
+    const LOGIN_ICONS = {
+        github: '<span data-tooltip="GitHub" class="login-icon"><i class="fab fa-github" style="font-size: 16px; color: #e6edf3;"></i></span>',
+        gitlab: '<span data-tooltip="GitLab" class="login-icon"><i class="fab fa-gitlab" style="font-size: 16px; color: #fc6d26;"></i></span>',
+        claude: '<span data-tooltip="Claude" class="login-icon"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAAJFBMVEVHcEzZd1fZd1fZd1fZd1fad1jZd1fZd1fZd1fZd1fZd1fZd1deZDooAAAADHRSTlMA//F3mhLfyjpWsiMDGU5mAAABH0lEQVQokXVSWXbEIAzDuw33v28FJCnpTP3BA6+yRGvbLK39a0F9RUvHZ5CIazZwkm+VpCi1nZP1GpJEnq2NdabzU594N0XpzInRhq/7jvm8wsOjFfVmcQG4guTWZKYL8HSiA1XFHDjgHMqCpKfpNPgIXiZVVvSJ9yazOJARxBiYf/ZMoIUxrYGjRHs/di2nbdzDZxIb1maPriold3QlyFJCAonMd08A7/WhkN19PWDolSeiXU7URWPm8S3ewMCuvGpB+kigVXvWZKlgIVycF0Hjl6DIoVRCGKz9pE8W0QKXkgkIEmjzUDuh11TSuVkn348DLHs1Y7/kzTi+ksX8GLn0wBRrdvCQS949C43fstj6FhfM8Unfqqwv3gf3+/kDMJgHC0kwnjEAAAAASUVORK5CYII=" width="16" height="16" style="border-radius: 3px;"></span>',
+        gemini: '<span data-tooltip="Gemini" class="login-icon"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAEMklEQVR4Ab2XA5AkSRSGv5ddXb095t2tbdu2bW/wbNsXONuBs23bttY2p2e7Kt/1VNQZ3cMv4o9U46+XrxJCSIvLduTv0ezjPTGzfaGNCk5KWAEVyMVSrKFQSsJ6UUolWAp9j5i3j2hK7sG9uMl9Ke0NtQ8nuS+ZKn+IeAceSLj2qtZ3X7sHQACaXLC3434n/rQvNLWiSNk21CZR0ZQIFEUprJDalIKSgoo6QTuo1/PKiHr7A7nJoCQalnG/jPriB2ZSfSv3+zKh+ZO3fCfBk/t5n1uhaeTn54m9dw1m70Zqg/r1sjiySSvG5uXgeGUrdyTzuslhF5Sf70Ui5wR//tIZgFKbCHBxq/aMy42jas8xKmY2Cm7qyUGpbRS4fu1KrHEwyGyjmNbmwFZk30bqivXlCbZ6igptDYqD71HXJDCAcY0Aki5ssRwQoSaxxglkhPSUtxrJzvn3kGwzGsRQE6hUGIhiUJA0uScKfkkbdk+4DH/xA7jtJyHGqXYEfBPNLAKCIApqYU9hcxhzDvWXPEhp5xkYx62qgTACpI9AZNsPODtXYxQ8YLsY9uQ1oHDYyfRNGWnTfR7RaLzyBsTBiJKWyJZvyL97FrnPnU506w8kVCpMBNqXXUrzgUcxc8kD9O+1hHgsNzMDEiYhgJABanF/fIGCexeQ/8TxJDZ/zTYxbAuNHIgX0KXPCo5bfC9Tey8mN5aTJgIRbJgDlUMVd+Ub5N+3DH3kSHas/4RtSEphRNwc+vVcQq8WA9NEIBpEwAlzoEqYtR9QntL6+p2xvZYSa9qPGBAzDuVOFv+HBkkoGFGqTXLjl6x95gx+/PqJ33MjIZLRQuRQTTQaJ9F5JvHuC7DZRWxTHxdDAkmbhL4x4RRQeTSWS3nnuZR1m4+XVUBClBiWmFaUcMD6GUQgEk6BkjEaLyTZ5yj2L3yaRJ8j0HqF4fogbMewZct3fPHM6az6+vGM1gFHEDIi+xD8zkvw2s/ARuNgFBOatwjuuo+IfXgH+9e8V6l1wCETGg3CjrgCdaKIgCgYCxjFWf0O7se342z8rEq7oSMKmm4zipdgxP3jg9ZiVr+C89ntmG3fVWs3dADSToOCUVDfx6x6FueLO2HXL9XcDUMDkkkO2oPww0PI13cie9fX6IHEQSGdCf3lmUBVI815wICHONQ1ESdeYeKgEfRHiZdCTn3qitLcQ8nJLsEz7vdG4AEQpOdxgFDbiAhT+iwlmAJxHzT5yd1XirCKZmNh2GWQ04DaIj+vPvPGnEOXFsPwJbqyrLDgKgHocPreDgec7KctNFNRNLE1vJwSyIZlMMbf+gj7hd+VE15iK1QQ1kuMQ8N4YXCjzrfeSrUHxs85u8X3Qkir8zTPet7xvjGzFW3jG4kqYP9uICj/3h+OhX0xlGJseIUPhSZT7e+LsA/4ZVx9zHnFewB+BQL7BcuXk7EZAAAAAElFTkSuQmCC" width="16" height="16" style="border-radius: 3px;"></span>',
+        codex: '<span data-tooltip="Codex" class="login-icon"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAP1BMVEVHcEwAgPgAgPgAgPcAgPcAgPcAgPcAgPcAgPcAgPcAd/dzsvq+2/2Kvvtfpvru+P/Z6/77/v83lvmnzfwbjPhuMd/TAAAACnRSTlMAF0adyun/9k+LLZxzywAAAXZJREFUeAFkUlmWwyAMC03qZITxAtz/rPNiaLpEvwhJCC1vpMe6PYn2bT3Sckf6e9KF55pux/SDvy9K2uiG7YNx7BQAgDdjP677r/PMXOhN2tOXPkSN2byUkis+XV75vBFA7mqugpE0BKY+M0DNuQIoXgbjlFinv1Zk0wxUAppeEin66ebe4Q2o7J6pq4zG0nLEfTPRDhUUNSlu3fKQeAwH0V5PQlPV1kHFfcZcl20GPAnuuWe1DIjx7HPZw+EkEOJ1cDcBtCBCLBGhGVVlimTQ3FxQbHgEgaoLuoVx6FiG+CQ8h4RWUFYVdHYhy8iDsEfI6IEjvTlrEJgxQq7DQ8W0kbgKgiAu85mPQYiiPZo+LdRnUcesGsZAzxVozp2MBa+q5293bx2gs2kgK2hgvb4b4mpsWgggbS9C+hgMcmtFrRT2ck37e9IAajHjjJ9hz9FO0n201+wn7rP/H76MQzjrIZQwI2deTqz5m4OZhR0oycLMhCQNACpMHlEZrAKTAAAAAElFTkSuQmCC" width="16" height="16" style="border-radius: 3px;"></span>',
+        copilot: '<span data-tooltip="Copilot" class="login-icon"><i class="fab fa-github" style="font-size: 14px; color: #000; background: #e6edf3; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center;"></i></span>',
+    };
+
+    function renderLoginIcons(logins) {
+        if (!logins) return '<span class="text-secondary text-xs">—</span>';
+        const icons = [];
+        for (const [key, icon] of Object.entries(LOGIN_ICONS)) {
+            if (logins[key]) icons.push(icon);
+        }
+        return icons.length > 0
+            ? '<div class="login-icons">' + icons.join('') + '</div>'
+            : '<span class="text-secondary text-xs">—</span>';
+    }
+
+    async function loadCachedLogins() {
+        try {
+            const cached = await api.get('/api/logins');
+            const now = Date.now() / 1000;
+            for (const [vm, data] of Object.entries(cached)) {
+                if (data.checked_at && (now - data.checked_at) < 86400) {
+                    loginData[vm] = data;
+                }
+            }
+            if (lastVMs) renderVMs(lastVMs);
+        } catch (e) {
+            console.warn('Failed to load cached logins:', e);
+        }
+    }
+
+    function checkLogins() {
+        if (loginCheckInProgress) return;
+        loginCheckInProgress = true;
+
+        const btn = document.getElementById('check-logins-btn');
+        btn.querySelector('i').className = 'fas fa-spinner fa-spin';
+        btn.disabled = true;
+
+        const token = encodeURIComponent(window.API_TOKEN || '');
+        const es = new EventSource('/api/logins/stream?token=' + token);
+
+        es.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                if (data.done) {
+                    es.close();
+                    loginCheckInProgress = false;
+                    btn.querySelector('i').className = 'fas fa-fingerprint';
+                    btn.disabled = false;
+                    return;
+                }
+                if (data.vm && data.logins) {
+                    loginData[data.vm] = data.logins;
+                    const row = document.querySelector('tr[data-vm="' + data.vm + '"]');
+                    if (row) {
+                        const cell = row.querySelector('td[data-label="Logins"]');
+                        if (cell) cell.innerHTML = renderLoginIcons(data.logins);
+                    }
+                }
+            } catch (err) {
+                console.warn('Login stream parse error:', err);
+            }
+        };
+
+        es.onerror = () => {
+            es.close();
+            loginCheckInProgress = false;
+            btn.querySelector('i').className = 'fas fa-fingerprint';
+            btn.disabled = false;
+        };
     }
 
     function renderHosts(hosts) {
@@ -1022,13 +1402,13 @@
         // Update worker filter options dynamically
         const workers = [...new Set(vms.map(vm => vm.worker).filter(Boolean))].sort();
         const workerMenu = document.getElementById('filter-worker-menu');
-        const existingWorkers = [...workerMenu.querySelectorAll('.vm-filter-option:not([data-value="all"])')].map(o => o.dataset.value);
+        const existingWorkers = [...workerMenu.querySelectorAll('.th-filter-opt:not([data-value="all"])')].map(o => o.dataset.value);
         if (workers.join() !== existingWorkers.join()) {
             const saved = vmFilters.worker;
-            workerMenu.innerHTML = '<button class="vm-filter-option selected" data-value="all"><i class="fas fa-check"></i>All</button>';
+            workerMenu.innerHTML = '<button class="th-filter-opt selected" data-value="all"><i class="fas fa-check"></i>All</button>';
             workers.forEach(w => {
                 const btn = document.createElement('button');
-                btn.className = 'vm-filter-option' + (saved === w ? ' selected' : '');
+                btn.className = 'th-filter-opt' + (saved === w ? ' selected' : '');
                 btn.dataset.value = w;
                 btn.innerHTML = '<i class="fas fa-check"></i>' + escapeHtml(w);
                 workerMenu.appendChild(btn);
@@ -1045,13 +1425,18 @@
             if (vmFilters.worker !== 'all' && vm.worker !== vmFilters.worker) return false;
             return true;
         });
-        filtered.forEach(vm => {
+        const sorted = sortVMs(filtered);
+        sorted.forEach(vm => {
             const row = document.createElement('tr');
             row.dataset.vm = vm.name;
 
             const statusBadge = getStatusBadge(vm);
 
-            const services = servicesMap[vm.name] || [];
+            const services = (servicesMap[vm.name] || []).slice().sort((a, b) => {
+                // Main domain first: no prefix like ttyd-, *-teams, *-homepage-teams
+                const isSecondary = u => /^https:\/\/(ttyd-|.*-teams\.)/.test(u.url);
+                return (isSecondary(a) ? 1 : 0) - (isSecondary(b) ? 1 : 0);
+            });
             let urlsHtml;
             if (!servicesLoaded) {
                 urlsHtml = '<div class="spinner" style="width: 14px; height: 14px; border-width: 2px;"></div>';
@@ -1089,8 +1474,10 @@
                 <td data-label="Worker" class="text-xs">${workerHtml}</td>
                 <td data-label="Tailscale IP" class="text-xs">${tsIpHtml}</td>
                 <td data-label="URLs">${urlsHtml}</td>
+                <td data-label="Logins" class="col-logins">${renderLoginIcons(loginData[vm.name])}</td>
                 <td data-label="CPU" class="text-xs">${vm.cpu || '<span class="text-secondary">—</span>'}</td>
                 <td data-label="Memory" class="text-xs">${memDisplay}</td>
+                <td data-label="Storage" class="text-xs">${vm.disk_size ? vm.disk_size + 'G' : '<span class="text-secondary">—</span>'}</td>
                 <td data-label="Restart" class="text-xs">${vm.restart_policy || '<span class="text-secondary">—</span>'}</td>
                 <td data-label="Actions" style="text-align: right;">
                     <div class="flex gap-1 justify-end">
@@ -1103,11 +1490,31 @@
                         <button class="icon-btn icon-btn-blue" data-tooltip="Restart" data-action="restart" ${!isRunning ? 'disabled' : ''}>
                             <i class="fas fa-redo" style="font-size: 11px;"></i>
                         </button>
-                        <button class="icon-btn icon-btn-purple" data-tooltip="Agent Login" data-action="agent-login" ${!isRunning ? 'disabled' : ''}>
-                            <i class="fas fa-key" style="font-size: 11px;"></i>
-                        </button>
                         <button class="icon-btn icon-btn-red" data-tooltip="Destroy" data-action="destroy">
                             <i class="fas fa-trash" style="font-size: 11px;"></i>
+                        </button>
+                    </div>
+                </td>
+                <td data-label="Snapshot" style="text-align: right;">
+                    <div class="flex gap-1 justify-end">
+                        <button class="icon-btn icon-btn-neutral" data-tooltip="Create Snapshot" data-action="snapshot" ${!isRunning ? 'disabled' : ''}>
+                            <i class="fas fa-camera" style="font-size: 11px;"></i>
+                        </button>
+                        <button class="icon-btn icon-btn-teal" data-tooltip="Recreate from Snapshot" data-action="recreate">
+                            <i class="fas fa-history" style="font-size: 11px;"></i>
+                        </button>
+                        <button class="icon-btn icon-btn-neutral" data-tooltip="Manage Snapshots" data-action="manage-snapshots">
+                            <i class="fas fa-layer-group" style="font-size: 11px;"></i>
+                        </button>
+                    </div>
+                </td>
+                <td data-label="Manage" style="text-align: right;">
+                    <div class="flex gap-1 justify-end">
+                        <button class="icon-btn icon-btn-neutral" data-tooltip="Git Config" data-action="vm-config" ${!isRunning ? 'disabled' : ''}>
+                            <i class="fas fa-code-branch" style="font-size: 11px;"></i>
+                        </button>
+                        <button class="icon-btn icon-btn-purple" data-tooltip="Agent Login" data-action="agent-login" ${!isRunning ? 'disabled' : ''}>
+                            <i class="fas fa-key" style="font-size: 11px;"></i>
                         </button>
                     </div>
                 </td>
@@ -1213,6 +1620,30 @@
                 }
                 break;
             }
+            case 'snapshot': {
+                try {
+                    const enc = encodeURIComponent(vmName);
+                    const task = await api.post(`/api/vms/${enc}/snapshot`, {});
+                    showToast(`Creating snapshot of ${vmName}...`, 'info');
+                    showTaskLogs(task.id, `Snapshot VM: ${vmName}`);
+                } catch (error) {
+                    console.error('Error snapshotting VM:', error);
+                    showToast('Failed to create snapshot', 'error');
+                }
+                break;
+            }
+            case 'recreate': {
+                showSnapshotModal(vmName);
+                break;
+            }
+            case 'manage-snapshots': {
+                showManageSnapshotsModal(vmName);
+                break;
+            }
+            case 'vm-config': {
+                showVmConfigModal(vmName);
+                break;
+            }
             case 'agent-login': {
                 showAgentLoginModal(vmName);
                 break;
@@ -1225,16 +1656,35 @@
         }
     }
 
+    async function handleBulkAction(action) {
+        const labels = { start: 'Starting', restart: 'Restarting', snapshot: 'Snapshotting' };
+        try {
+            const result = await api.post(`/api/vms/bulk/${action}`, {});
+            const count = result.started || result.restarted || result.snapshotted || 0;
+            if (count === 0) {
+                showToast(`No VMs to ${action}`, 'info');
+                return;
+            }
+            showToast(`${labels[action]} ${count} VM${count > 1 ? 's' : ''}...`, 'info');
+            refreshActiveTasks();
+        } catch (error) {
+            console.error(`Error bulk ${action}:`, error);
+            showToast(`Failed to ${action} all VMs`, 'error');
+        }
+    }
+
     async function loadGitHubTokenStatus() {
         try {
             const status = await api.get('/api/settings/github-token');
             githubTokenInput.value = '';
 
             if (status.configured) {
+                githubTokenInput.placeholder = 'Enter new token to replace current one';
                 tokenStatus.className = 'info-box info-box-green text-xs';
                 tokenStatus.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Token configured: ${escapeHtml(status.masked_token || 'Active')}`;
                 tokenStatus.classList.remove('hidden');
             } else {
+                githubTokenInput.placeholder = 'ghp_xxxxxxxxxxxxxxxxxxxx';
                 tokenStatus.className = 'info-box info-box-yellow text-xs';
                 tokenStatus.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> No token configured';
                 tokenStatus.classList.remove('hidden');
@@ -1250,7 +1700,7 @@
     async function handleSaveGitHubToken() {
         const token = githubTokenInput.value.trim();
         if (!token) {
-            showToast('Please enter a GitHub token', 'error');
+            hideModal(settingsModal);
             return;
         }
 
@@ -1660,6 +2110,606 @@ The target machine (${name}) needs:
         if (e.key === 'Enter') sendAgentLoginInput();
     });
 
+    // --- Git Profiles & VM Config ---
+    let vmConfigVmName = null;
+
+    document.getElementById('vm-config-close-btn').addEventListener('click', () => hideModal(document.getElementById('vm-config-modal')));
+    document.getElementById('vm-config-apply-btn').addEventListener('click', applyVmGitProfiles);
+
+    window.toggleSecretField = function(inputId, btn) {
+        const el = document.getElementById(inputId);
+        const icon = btn.querySelector('i');
+        if (el.tagName === 'TEXTAREA') {
+            el.classList.toggle('revealed');
+            const shown = el.classList.contains('revealed');
+            icon.className = shown ? 'fas fa-eye-slash' : 'fas fa-eye';
+        } else {
+            el.type = el.type === 'password' ? 'text' : 'password';
+            icon.className = el.type === 'text' ? 'fas fa-eye-slash' : 'fas fa-eye';
+        }
+        icon.style.fontSize = '9px';
+    };
+
+    // --- Git Profiles (Settings) ---
+
+    document.getElementById('git-profile-add-btn').addEventListener('click', () => showGitProfileForm());
+
+    async function loadGitProfiles() {
+        const list = document.getElementById('git-profiles-list');
+        try {
+            const profiles = await api.get('/api/git-profiles');
+            if (profiles.length === 0) {
+                list.innerHTML = '<p class="text-xs text-secondary">No profiles yet.</p>';
+                return;
+            }
+            list.innerHTML = profiles.map(p => {
+                const hasKey = p.ssh_key === '***';
+                const badges = hasKey ? '<span class="badge badge-green" style="font-size: 10px;">SSH</span>' : '';
+                return `<div class="surface rounded-lg p-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-medium text-emphasis">${esc(p.label)}</span>
+                            <span class="text-xs text-secondary ml-2">${esc(p.host)}</span>
+                            ${badges ? '<span class="ml-2">' + badges + '</span>' : ''}
+                        </div>
+                        <div class="flex gap-1">
+                            <button class="icon-btn icon-btn-blue" style="width: 22px; height: 22px;" data-tooltip="Edit" onclick="showGitProfileForm('${p.id}')">
+                                <i class="fas fa-pen" style="font-size: 9px;"></i>
+                            </button>
+                            <button class="icon-btn icon-btn-red" style="width: 22px; height: 22px;" data-tooltip="Delete" onclick="deleteGitProfile('${p.id}')">
+                                <i class="fas fa-trash" style="font-size: 9px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (e) {
+            list.innerHTML = '<p class="text-xs text-red-400">Failed to load profiles</p>';
+        }
+    }
+
+    function esc(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    window.showGitProfileForm = async function(editId) {
+        const form = document.getElementById('git-profile-form');
+        document.getElementById('git-profile-edit-id').value = editId || '';
+        document.getElementById('git-profile-label').value = '';
+        document.getElementById('git-profile-host-select').value = 'github.com';
+        document.getElementById('git-profile-host').value = '';
+        document.getElementById('git-profile-host').classList.add('hidden');
+        document.getElementById('git-profile-name').value = '';
+        document.getElementById('git-profile-email').value = '';
+        document.getElementById('git-profile-ssh-key').value = '';
+        document.getElementById('git-profile-ssh-key').classList.remove('revealed');
+
+        if (editId) {
+            try {
+                const p = await api.get(`/api/git-profiles/${editId}`);
+                document.getElementById('git-profile-label').value = p.label || '';
+                const hostSel = document.getElementById('git-profile-host-select');
+                const hostInput = document.getElementById('git-profile-host');
+                if (['github.com', 'gitlab.com'].includes(p.host)) {
+                    hostSel.value = p.host;
+                    hostInput.classList.add('hidden');
+                } else {
+                    hostSel.value = 'custom';
+                    hostInput.value = p.host;
+                    hostInput.classList.remove('hidden');
+                }
+                document.getElementById('git-profile-name').value = p.name || '';
+                document.getElementById('git-profile-email').value = p.email || '';
+                document.getElementById('git-profile-ssh-key').value = p.ssh_key || '';
+            } catch (e) {
+                showToast('Failed to load profile', 'error');
+                return;
+            }
+        }
+        form.classList.remove('hidden');
+    };
+
+    window.hideGitProfileForm = function() {
+        document.getElementById('git-profile-form').classList.add('hidden');
+    };
+
+    window.saveGitProfile = async function() {
+        const editId = document.getElementById('git-profile-edit-id').value;
+        const hostSel = document.getElementById('git-profile-host-select').value;
+        const host = hostSel === 'custom' ? document.getElementById('git-profile-host').value.trim() : hostSel;
+        const label = document.getElementById('git-profile-label').value.trim();
+
+        if (!label || !host) {
+            showToast('Label and host are required', 'error');
+            return;
+        }
+
+        const body = {
+            label,
+            host,
+            name: document.getElementById('git-profile-name').value.trim(),
+            email: document.getElementById('git-profile-email').value.trim(),
+            ssh_key: document.getElementById('git-profile-ssh-key').value,
+        };
+
+        try {
+            if (editId) {
+                await api.put(`/api/git-profiles/${editId}`, body);
+                showToast('Profile updated', 'success');
+            } else {
+                await api.post('/api/git-profiles', body);
+                showToast('Profile created', 'success');
+            }
+            hideGitProfileForm();
+            loadGitProfiles();
+        } catch (e) {
+            showToast('Failed to save profile: ' + e.message, 'error');
+        }
+    };
+
+    window.deleteGitProfile = async function(id) {
+        if (!confirm('Delete this git profile?')) return;
+        try {
+            await api.delete(`/api/git-profiles/${id}`);
+            showToast('Profile deleted', 'success');
+            loadGitProfiles();
+        } catch (e) {
+            showToast('Failed to delete profile: ' + e.message, 'error');
+        }
+    };
+
+    // --- VM Config Modal ---
+
+    async function showVmConfigModal(vmName) {
+        vmConfigVmName = vmName;
+        document.getElementById('vm-config-title').textContent = 'Git Config: ' + vmName;
+        document.getElementById('vm-config-loading').classList.remove('hidden');
+        document.getElementById('vm-config-content').classList.add('hidden');
+        document.getElementById('vm-config-result').classList.add('hidden');
+        showModal(document.getElementById('vm-config-modal'));
+
+        let hasProfiles = false;
+        let vmConfigProfiles = [];
+        let vmConfigAppliedId = null;
+        try {
+            vmConfigProfiles = await api.get('/api/git-profiles');
+            const enc = encodeURIComponent(vmName);
+            try {
+                const appliedResp = await api.get(`/api/vms/${enc}/git-profiles/applied`);
+                vmConfigAppliedId = appliedResp.applied || null;
+            } catch (e) { /* ignore */ }
+
+            const container = document.getElementById('vm-config-profiles');
+            const applyBtn = document.getElementById('vm-config-apply-btn');
+            const noProfiles = document.getElementById('vm-config-no-profiles');
+            const profilesSection = document.getElementById('vm-config-profiles-section');
+
+            if (vmConfigProfiles.length === 0) {
+                container.innerHTML = '';
+                profilesSection.classList.add('hidden');
+                applyBtn.classList.add('hidden');
+                noProfiles.classList.remove('hidden');
+            } else {
+                hasProfiles = true;
+                noProfiles.classList.add('hidden');
+                // Build profile cards but keep selector hidden initially
+                // It will be shown by the identity card logic when appropriate
+                profilesSection.classList.add('hidden');
+                applyBtn.classList.add('hidden');
+                container.innerHTML = vmConfigProfiles.map(p => {
+                    const hasKey = p.ssh_key === '***';
+                    const isApplied = p.id === vmConfigAppliedId;
+                    const hostIcon = p.host.includes('gitlab') ? 'fab fa-gitlab' : 'fab fa-github';
+                    const hostColor = p.host.includes('gitlab') ? '#fc6d26' : '#e6edf3';
+                    const badges = [
+                        hasKey ? '<span class="badge badge-green" style="font-size: 10px;">SSH</span>' : '',
+                        isApplied ? '<span class="badge" style="font-size: 10px; background: rgba(168, 85, 247, 0.15); color: #c084fc;">Active</span>' : '',
+                    ].filter(Boolean).join(' ');
+                    return `<label class="profile-card surface rounded-lg cursor-pointer" style="display: flex; align-items: center; gap: 12px; padding: 10px 14px;">
+                        <input type="radio" name="vm-git-profile" value="${p.id}" ${isApplied ? 'checked' : ''} style="flex-shrink: 0;">
+                        <div class="flex items-center gap-3 flex-1" style="min-width: 0;">
+                            <i class="${hostIcon}" style="font-size: 16px; color: ${hostColor}; flex-shrink: 0;"></i>
+                            <div style="min-width: 0;">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-xs font-medium text-emphasis">${esc(p.label)}</span>
+                                    ${badges}
+                                </div>
+                                <div class="text-xs text-secondary" style="margin-top: 1px;">${esc(p.host)}${p.name ? ' &middot; ' + esc(p.name) : ''}</div>
+                            </div>
+                        </div>
+                    </label>`;
+                }).join('');
+            }
+        } catch (e) {
+            document.getElementById('vm-config-profiles-section').classList.add('hidden');
+        }
+
+        document.getElementById('vm-config-loading').classList.add('hidden');
+        document.getElementById('vm-config-content').classList.remove('hidden');
+
+        // Fetch CLI auth status + git identity (non-blocking)
+        const ghStatus = document.getElementById('vm-config-gh-cli-status');
+        const glStatus = document.getElementById('vm-config-gl-cli-status');
+        const ghLoginBtn = document.getElementById('vm-config-gh-login-btn');
+        const glLoginBtn = document.getElementById('vm-config-gl-login-btn');
+        // Identity card is updated inline below
+        ghStatus.innerHTML = '<span style="color: var(--text-secondary);">checking...</span>';
+        glStatus.innerHTML = '<span style="color: var(--text-secondary);">checking...</span>';
+        ghLoginBtn.textContent = 'Login';
+        glLoginBtn.textContent = 'Login';
+        // Reset identity card to loading state
+        const identityCard = document.getElementById('vm-config-identity-card');
+        const profilesSection = document.getElementById('vm-config-profiles-section');
+        const applyBtn = document.getElementById('vm-config-apply-btn');
+        identityCard.innerHTML = '<div class="flex items-center gap-3"><div class="spinner" style="width: 14px; height: 14px; border-width: 2px; flex-shrink: 0;"></div><span class="text-xs text-secondary">Checking VM identity...</span></div>';
+        try {
+            const enc = encodeURIComponent(vmName);
+            const cliStatus = await api.get(`/api/vms/${enc}/cli-auth-status`);
+            // Update identity card
+            const gi = cliStatus.git_identity;
+            const hasIdentity = gi && (gi.name || gi.email);
+            if (hasIdentity) {
+                // Identity is set — show it with a Change button, hide profile selector
+                identityCard.innerHTML = '<div class="flex items-center justify-between">'
+                    + '<div class="flex items-center gap-3" style="min-width: 0;">'
+                    + '<div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(34, 197, 94, 0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="fas fa-check" style="font-size: 9px; color: #4ade80;"></i></div>'
+                    + '<div style="line-height: 1.5; min-width: 0;">'
+                    + '<div class="text-xs text-emphasis font-medium">' + esc(gi.name || '(no name)') + '</div>'
+                    + '<div class="text-xs text-secondary">' + esc(gi.email || '(no email)') + '</div>'
+                    + '</div></div>'
+                    + (hasProfiles ? '<button class="btn btn-neutral" style="flex-shrink: 0; margin-left: 12px;" onclick="document.getElementById(\'vm-config-profiles-section\').classList.remove(\'hidden\');document.getElementById(\'vm-config-apply-btn\').classList.remove(\'hidden\');this.remove();">Change</button>' : '')
+                    + '</div>';
+                profilesSection.classList.add('hidden');
+                applyBtn.classList.add('hidden');
+            } else {
+                // No identity — show warning and open profile selector automatically
+                identityCard.innerHTML = '<div class="flex items-center gap-3">'
+                    + '<div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(234, 179, 8, 0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="fas fa-exclamation" style="font-size: 9px; color: #fbbf24;"></i></div>'
+                    + '<div style="line-height: 1.5;">'
+                    + '<div class="text-xs text-emphasis font-medium">Not configured</div>'
+                    + '<div class="text-xs text-secondary">Select a profile below to set identity + SSH key</div>'
+                    + '</div></div>';
+                if (hasProfiles) {
+                    profilesSection.classList.remove('hidden');
+                    applyBtn.classList.remove('hidden');
+                }
+            }
+            // Update auth status
+            function extractAccount(raw) {
+                if (!raw) return '';
+                const m = raw.match(/account\s+(\S+)/i);
+                return m ? m[1] : raw;
+            }
+            if (cliStatus.github.authenticated) {
+                const user = extractAccount(cliStatus.github.account);
+                ghStatus.innerHTML = '<span style="color: #4ade80;">Logged in as: ' + esc(user || 'unknown') + '</span>';
+                ghLoginBtn.textContent = 'Re-Login';
+            } else {
+                ghStatus.innerHTML = '<span style="color: #f87171;">Not logged in</span>';
+            }
+            if (cliStatus.gitlab.authenticated) {
+                const user = extractAccount(cliStatus.gitlab.account);
+                glStatus.innerHTML = '<span style="color: #4ade80;">Logged in as: ' + esc(user || 'unknown') + '</span>';
+                glLoginBtn.textContent = 'Re-Login';
+            } else {
+                glStatus.innerHTML = '<span style="color: #f87171;">Not logged in</span>';
+            }
+        } catch (e) {
+            identityCard.innerHTML = '<div class="flex items-center gap-3"><span class="text-xs text-secondary">Could not reach VM</span></div>';
+            ghStatus.innerHTML = '<span style="color: var(--text-secondary);">unavailable</span>';
+            glStatus.innerHTML = '<span style="color: var(--text-secondary);">unavailable</span>';
+        }
+    }
+
+    async function applyVmGitProfiles() {
+        const selected = document.querySelector('#vm-config-profiles input[type="radio"]:checked');
+        if (!selected) {
+            showToast('No profile selected', 'error');
+            return;
+        }
+
+        const applyBtn = document.getElementById('vm-config-apply-btn');
+        const icon = applyBtn.querySelector('i');
+        icon.className = 'fas fa-spinner fa-spin';
+        icon.style.fontSize = '11px';
+        applyBtn.disabled = true;
+
+        try {
+            const enc = encodeURIComponent(vmConfigVmName);
+            const result = await api.post(`/api/vms/${enc}/git-profiles/apply`, { profile_id: selected.value });
+
+            if (result.success) {
+                showToast(`Profile "${result.profile}" applied`, 'success');
+                hideModal(document.getElementById('vm-config-modal'));
+            } else {
+                const output = result.output || 'Unknown error';
+                document.getElementById('vm-config-result-output').textContent = output;
+                document.getElementById('vm-config-result').classList.remove('hidden');
+                showToast('Profile apply failed — see output below', 'error');
+            }
+        } catch (e) {
+            document.getElementById('vm-config-result-output').textContent = e.message;
+            document.getElementById('vm-config-result').classList.remove('hidden');
+            showToast('Failed to apply profile: ' + e.message, 'error');
+        } finally {
+            icon.className = 'fas fa-check';
+            icon.style.fontSize = '11px';
+            applyBtn.disabled = false;
+        }
+    }
+
+    window.startGitCliLogin = function(provider) {
+        const vmName = vmConfigVmName;
+        if (!vmName) { showToast('No VM selected', 'error'); return; }
+        hideModal(document.getElementById('vm-config-modal'));
+        showAgentLoginModal(vmName);
+        const agent = provider === 'gitlab' ? 'gitlab' : 'github';
+        setTimeout(() => startAgentLogin(vmName, agent, 'login'), 300);
+    };
+
+
+    let _snapshotVmName = null;
+    let _selectedSnapshot = null;
+    let _manageVmName = null;
+
+    function formatSnapshotDate(dateStr) {
+        if (!dateStr) return 'unknown';
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d)) return dateStr;
+            const now = new Date();
+            const diff = now - d;
+            const mins = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            let ago;
+            if (mins < 1) ago = 'just now';
+            else if (mins < 60) ago = `${mins}m ago`;
+            else if (hours < 24) ago = `${hours}h ago`;
+            else if (days < 7) ago = `${days}d ago`;
+            else ago = d.toLocaleDateString();
+            return `${d.toLocaleString()} (${ago})`;
+        } catch { return dateStr; }
+    }
+
+    function snapshotLabel(name, vmName) {
+        if (name === vmName) return 'Base image';
+        const daily = name.match(new RegExp(`^${vmName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\d{4}-\\d{2}-\\d{2})$`));
+        if (daily) return `Daily — ${daily[1]}`;
+        const snap = name.match(/-snap-(\d{4}-\d{2}-\d{2}-\d{6})$/);
+        if (snap) {
+            const [y, m, d, t] = [snap[1].slice(0,4), snap[1].slice(5,7), snap[1].slice(8,10), snap[1].slice(11)];
+            return `Manual — ${y}-${m}-${d} ${t.slice(0,2)}:${t.slice(2,4)}:${t.slice(4)}`;
+        }
+        if (name.includes('-hourly')) return 'Hourly';
+        return name.replace(vmName + '-', '');
+    }
+
+    function renderSnapshotItems(container, snapshots, vmName, mode) {
+        container.innerHTML = '';
+        if (!snapshots || snapshots.length === 0) {
+            container.innerHTML = '<div class="text-secondary text-xs p-4 text-center">No snapshots found</div>';
+            return;
+        }
+        snapshots.forEach(snap => {
+            const item = document.createElement('label');
+            item.className = 'snapshot-item';
+            const inputType = mode === 'select' ? 'radio' : 'checkbox';
+            const inputName = mode === 'select' ? 'snapshot-choice' : 'snapshot-delete';
+            const size = snap.size ? (snap.size / 1073741824).toFixed(1) + ' GB' : '';
+            item.innerHTML = `
+                <input type="${inputType}" name="${inputName}" value="${escapeHtml(snap.name)}" style="accent-color: #2dd4bf; margin-right: 8px; flex-shrink: 0;">
+                <div style="min-width: 0; flex: 1;">
+                    <div class="text-xs font-medium text-emphasis">${escapeHtml(snapshotLabel(snap.name, vmName))}</div>
+                    <div class="text-xs text-secondary" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${formatSnapshotDate(snap.last_accessed)}${size ? ' · ' + size : ''}</div>
+                </div>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    async function showSnapshotModal(vmName) {
+        _snapshotVmName = vmName;
+        _selectedSnapshot = null;
+        snapshotModalTitle.textContent = `Recreate from Snapshot — ${vmName}`;
+        snapshotList.innerHTML = '<div class="text-secondary text-xs">Loading snapshots...</div>';
+        snapshotConfirmBtn.disabled = true;
+        showModal(snapshotModal);
+
+        try {
+            const snapshots = await api.get(`/api/vms/${encodeURIComponent(vmName)}/snapshots`);
+            renderSnapshotItems(snapshotList, snapshots, vmName, 'select');
+            snapshotList.addEventListener('change', () => {
+                const checked = snapshotList.querySelector('input[name="snapshot-choice"]:checked');
+                _selectedSnapshot = checked ? checked.value : null;
+                snapshotConfirmBtn.disabled = !_selectedSnapshot;
+            });
+        } catch (error) {
+            console.error('Error loading snapshots:', error);
+            snapshotList.innerHTML = '<div class="text-xs" style="color: #f87171;">Failed to load snapshots</div>';
+        }
+    }
+
+    async function handleSnapshotConfirm() {
+        if (!_snapshotVmName || !_selectedSnapshot) return;
+        hideModal(snapshotModal);
+        try {
+            const enc = encodeURIComponent(_snapshotVmName);
+            const task = await api.post(`/api/vms/${enc}/recreate`, { snapshot: _selectedSnapshot });
+            showToast(`Recreating ${_snapshotVmName} from snapshot...`, 'info');
+            showTaskLogs(task.id, `Recreate VM: ${_snapshotVmName}`);
+        } catch (error) {
+            console.error('Error recreating VM:', error);
+            showToast('Failed to recreate VM', 'error');
+        }
+    }
+
+    async function showManageSnapshotsModal(vmName) {
+        _manageVmName = vmName;
+        manageSnapshotsTitle.textContent = `Snapshots — ${vmName}`;
+        manageSnapshotsList.innerHTML = '<div class="text-secondary text-xs">Loading snapshots...</div>';
+        manageSnapshotsDeleteBtn.disabled = true;
+        manageSnapshotsCount.textContent = '';
+        showModal(manageSnapshotsModal);
+
+        try {
+            const snapshots = await api.get(`/api/vms/${encodeURIComponent(vmName)}/snapshots`);
+            manageSnapshotsCount.textContent = `${snapshots.length} snapshot${snapshots.length !== 1 ? 's' : ''}`;
+            renderSnapshotItems(manageSnapshotsList, snapshots, vmName, 'multi');
+            manageSnapshotsList.addEventListener('change', () => {
+                const checked = manageSnapshotsList.querySelectorAll('input[name="snapshot-delete"]:checked');
+                manageSnapshotsDeleteBtn.disabled = checked.length === 0;
+            });
+        } catch (error) {
+            console.error('Error loading snapshots:', error);
+            manageSnapshotsList.innerHTML = '<div class="text-xs" style="color: #f87171;">Failed to load snapshots</div>';
+        }
+    }
+
+    async function handleDeleteSelectedSnapshots() {
+        if (!_manageVmName) return;
+        const checked = manageSnapshotsList.querySelectorAll('input[name="snapshot-delete"]:checked');
+        const names = [...checked].map(cb => cb.value);
+        if (names.length === 0) return;
+
+        manageSnapshotsDeleteBtn.disabled = true;
+        try {
+            const enc = encodeURIComponent(_manageVmName);
+            const result = await api.post(`/api/vms/${enc}/snapshots/delete`, { names });
+            const count = result.deleted ? result.deleted.length : 0;
+            showToast(`Deleted ${count} snapshot${count !== 1 ? 's' : ''}`, 'success');
+            // Refresh the list
+            showManageSnapshotsModal(_manageVmName);
+        } catch (error) {
+            console.error('Error deleting snapshots:', error);
+            showToast('Failed to delete snapshots', 'error');
+            manageSnapshotsDeleteBtn.disabled = false;
+        }
+    }
+
+    let _globalSnapshots = [];
+    let _globalSnapFilter = 'all';
+
+    async function showGlobalSnapshotsModal() {
+        _globalSnapFilter = 'all';
+        globalSnapList.innerHTML = '<div class="text-secondary text-xs p-4">Loading...</div>';
+        globalSnapDeleteBtn.disabled = true;
+        globalSnapSelected.textContent = '';
+        globalSnapCount.textContent = '';
+        // Reset filter buttons
+        document.querySelectorAll('.snap-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.snapFilter === 'all'));
+        showModal(globalSnapModal);
+
+        try {
+            _globalSnapshots = await api.get('/api/snapshots');
+            globalSnapCount.textContent = `${_globalSnapshots.length} snapshot${_globalSnapshots.length !== 1 ? 's' : ''}`;
+            renderGlobalSnapshots();
+        } catch (error) {
+            console.error('Error loading snapshots:', error);
+            globalSnapList.innerHTML = '<div class="text-xs" style="color: #f87171;">Failed to load snapshots</div>';
+        }
+
+        // Filter click handlers (delegate)
+        document.querySelectorAll('.snap-filter-btn').forEach(btn => {
+            btn.onclick = () => {
+                _globalSnapFilter = btn.dataset.snapFilter;
+                document.querySelectorAll('.snap-filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+                renderGlobalSnapshots();
+            };
+        });
+    }
+
+    function renderGlobalSnapshots() {
+        const filtered = _globalSnapFilter === 'all'
+            ? _globalSnapshots
+            : _globalSnapshots.filter(s => s.type === _globalSnapFilter);
+
+        globalSnapList.innerHTML = '';
+        if (filtered.length === 0) {
+            globalSnapList.innerHTML = '<div class="text-secondary text-xs p-4 text-center">No snapshots match this filter</div>';
+            updateGlobalSnapSelection();
+            return;
+        }
+
+        // Group by VM
+        const grouped = {};
+        filtered.forEach(s => {
+            const key = s.vm || '(unassigned)';
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(s);
+        });
+
+        Object.keys(grouped).sort().forEach(vm => {
+            const header = document.createElement('div');
+            header.className = 'text-xs font-medium text-secondary';
+            header.style.cssText = 'padding: 6px 4px 2px; margin-top: 4px;';
+            const vmColor = Object.entries(nameColors).find(([p]) => vm.startsWith(p))?.[1] || 'var(--text-secondary)';
+            header.innerHTML = `<span style="color: ${vmColor};">${escapeHtml(vm)}</span> <span style="opacity: 0.5;">(${grouped[vm].length})</span>`;
+            globalSnapList.appendChild(header);
+
+            grouped[vm].forEach(snap => {
+                const item = document.createElement('label');
+                item.className = 'snapshot-item';
+                item.dataset.snapType = snap.type;
+                const size = snap.size ? (snap.size / 1073741824).toFixed(1) + ' GB' : '';
+                const typeBadge = {
+                    base: '<span style="color: #4ade80;">base</span>',
+                    daily: '<span style="color: #60a5fa;">daily</span>',
+                    manual: '<span style="color: #c084fc;">manual</span>',
+                    hourly: '<span style="color: #fb923c;">hourly</span>',
+                    other: '<span style="color: var(--text-tertiary);">other</span>',
+                }[snap.type] || snap.type;
+                item.innerHTML = `
+                    <input type="checkbox" name="global-snap-delete" value="${escapeHtml(snap.name)}" style="accent-color: #c084fc; margin-right: 8px; flex-shrink: 0;">
+                    <div style="min-width: 0; flex: 1;">
+                        <div class="text-xs font-medium text-emphasis">${escapeHtml(snapshotLabel(snap.name, snap.vm || snap.name))} ${typeBadge}</div>
+                        <div class="text-xs text-secondary" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${formatSnapshotDate(snap.last_accessed)}${size ? ' · ' + size : ''}</div>
+                    </div>
+                `;
+                globalSnapList.appendChild(item);
+            });
+        });
+
+        globalSnapList.addEventListener('change', updateGlobalSnapSelection);
+        updateGlobalSnapSelection();
+    }
+
+    function updateGlobalSnapSelection() {
+        const checked = globalSnapList.querySelectorAll('input[name="global-snap-delete"]:checked');
+        globalSnapDeleteBtn.disabled = checked.length === 0;
+        globalSnapSelected.textContent = checked.length > 0 ? `${checked.length} selected` : '';
+    }
+
+    function toggleGlobalSnapCheckboxes(state) {
+        globalSnapList.querySelectorAll('input[name="global-snap-delete"]').forEach(cb => { cb.checked = state; });
+        updateGlobalSnapSelection();
+    }
+
+    async function handleGlobalSnapDelete() {
+        const checked = globalSnapList.querySelectorAll('input[name="global-snap-delete"]:checked');
+        const names = [...checked].map(cb => cb.value);
+        if (names.length === 0) return;
+
+        globalSnapDeleteBtn.disabled = true;
+        try {
+            const result = await api.post('/api/snapshots/delete', { names });
+            const count = result.deleted ? result.deleted.length : 0;
+            const failCount = result.failed ? result.failed.length : 0;
+            if (failCount > 0) {
+                showToast(`Deleted ${count}, failed ${failCount}`, 'error');
+            } else {
+                showToast(`Deleted ${count} snapshot${count !== 1 ? 's' : ''}`, 'success');
+            }
+            showGlobalSnapshotsModal();
+        } catch (error) {
+            console.error('Error deleting snapshots:', error);
+            showToast('Failed to delete snapshots', 'error');
+            globalSnapDeleteBtn.disabled = false;
+        }
+    }
+
     function showAgentLoginModal(vmName) {
         agentLoginVmName = vmName;
         agentLoginTitle.textContent = `Agent Login — ${vmName}`;
@@ -1668,6 +2718,48 @@ The target machine (${name}) needs:
         agentLoginOutput.innerHTML = '';
         agentLoginStatus.classList.add('hidden');
         showModal(agentLoginModal);
+
+        // Reset status dots to grey
+        ['claude', 'codex', 'gemini', 'copilot'].forEach(a => {
+            const dot = document.getElementById(`agent-status-${a}`);
+            if (dot) dot.style.background = 'var(--border)';
+        });
+
+        // Fetch login status from cache, then live-check
+        (async () => {
+            try {
+                const cached = await api.get('/api/logins');
+                const vmLogins = cached[vmName];
+                if (vmLogins) updateAgentDots(vmLogins);
+            } catch (e) { /* ignore */ }
+
+            // Live check via SSE
+            const enc = encodeURIComponent(vmName);
+            const evtSource = new EventSource(`/api/logins/stream?token=${encodeURIComponent(window.API_TOKEN || '')}&vm=${enc}`);
+            evtSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.done) { evtSource.close(); return; }
+                if (data.vm === vmName && data.logins) updateAgentDots(data.logins);
+            };
+            evtSource.onerror = () => evtSource.close();
+
+            // Close SSE when modal closes
+            const observer = new MutationObserver(() => {
+                if (agentLoginModal.classList.contains('hidden')) {
+                    evtSource.close();
+                    observer.disconnect();
+                }
+            });
+            observer.observe(agentLoginModal, { attributes: true, attributeFilter: ['class'] });
+        })();
+    }
+
+    function updateAgentDots(logins) {
+        const map = { claude: 'claude', codex: 'codex', gemini: 'gemini', copilot: 'copilot' };
+        for (const [key, id] of Object.entries(map)) {
+            const dot = document.getElementById(`agent-status-${id}`);
+            if (dot) dot.style.background = logins[key] ? '#4ade80' : '#f87171';
+        }
     }
 
     let agentLoginAction = 'login';
@@ -1741,11 +2833,36 @@ The target machine (${name}) needs:
     }
 
     function closeAgentLogin() {
+        const vmName = agentLoginVmName;
         if (agentLoginSocket) {
             agentLoginSocket.close();
             agentLoginSocket = null;
         }
         hideModal(agentLoginModal);
+        // Refresh logins for this VM after closing
+        if (vmName) refreshSingleVmLogin(vmName);
+    }
+
+    async function refreshSingleVmLogin(vmName) {
+        try {
+            const token = encodeURIComponent(window.API_TOKEN || '');
+            const es = new EventSource('/api/logins/stream?token=' + token + '&vm=' + encodeURIComponent(vmName));
+            es.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.done) { es.close(); return; }
+                    if (data.vm && data.logins) {
+                        loginData[data.vm] = data.logins;
+                        const row = document.querySelector('tr[data-vm="' + data.vm + '"]');
+                        if (row) {
+                            const cell = row.querySelector('td[data-label="Logins"]');
+                            if (cell) cell.innerHTML = renderLoginIcons(data.logins);
+                        }
+                    }
+                } catch (err) {}
+            };
+            es.onerror = () => es.close();
+        } catch (e) {}
     }
 
     function escapeHtml(unsafe) {
@@ -1762,343 +2879,5 @@ The target machine (${name}) needs:
         return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: underline; word-break: break-all;">$1</a>');
     }
 
-    // --- Pipeline ---
-    let pipelineTimer = null;
-    let pipelineRuns = [];
-    let expandedRunId = null;
-
-    const PIPELINE_REFRESH_MS = 30000;
-
-    const PIPELINE_STATE_CLASSES = {
-        DONE: 'pipeline-state-done',
-        MERGED: 'pipeline-state-done',
-        CLEANUP: 'pipeline-state-done',
-        FAILED: 'pipeline-state-failed',
-        DEVELOPING: 'pipeline-state-active',
-        REVIEWING: 'pipeline-state-active',
-        TESTING: 'pipeline-state-active',
-        DEPLOYING: 'pipeline-state-active',
-        VERIFYING: 'pipeline-state-active',
-        WORKTREE_SETUP: 'pipeline-state-active',
-        DEV_COMPLETE: 'pipeline-state-active',
-        REVIEW_DECIDED: 'pipeline-state-active',
-        TEST_DECIDED: 'pipeline-state-active',
-        AWAITING_MERGE: 'pipeline-state-merge',
-        RECEIVED: 'pipeline-state-idle',
-    };
-
-    const PIPELINE_STATE_ICONS = {
-        DONE: 'fa-check',
-        MERGED: 'fa-code-merge',
-        CLEANUP: 'fa-broom',
-        FAILED: 'fa-times',
-        DEVELOPING: 'fa-code',
-        REVIEWING: 'fa-search',
-        TESTING: 'fa-vial',
-        DEPLOYING: 'fa-rocket',
-        VERIFYING: 'fa-clipboard-check',
-        WORKTREE_SETUP: 'fa-folder-open',
-        DEV_COMPLETE: 'fa-check-double',
-        REVIEW_DECIDED: 'fa-gavel',
-        TEST_DECIDED: 'fa-gavel',
-        AWAITING_MERGE: 'fa-hourglass-half',
-        RECEIVED: 'fa-inbox',
-    };
-
-    function startPipelinePolling() {
-        if (pipelineTimer) return;
-        pipelineTimer = window.setInterval(() => {
-            if (document.hidden || activeTab !== 'pipeline') return;
-            loadPipelineData();
-        }, PIPELINE_REFRESH_MS);
-    }
-
-    function stopPipelinePolling() {
-        if (!pipelineTimer) return;
-        window.clearInterval(pipelineTimer);
-        pipelineTimer = null;
-    }
-
-    async function loadPipelineData() {
-        const loading = document.getElementById('pipeline-loading');
-        const error = document.getElementById('pipeline-error');
-        const content = document.getElementById('pipeline-content');
-
-        if (pipelineRuns.length === 0) {
-            loading.classList.remove('hidden');
-            error.classList.add('hidden');
-            content.classList.add('hidden');
-        }
-
-        try {
-            const [runs, health] = await Promise.all([
-                api.get('/api/pipeline/runs'),
-                api.get('/api/pipeline/health'),
-            ]);
-
-            loading.classList.add('hidden');
-
-            if (health.status === 'unreachable') {
-                error.classList.remove('hidden');
-                content.classList.add('hidden');
-                return;
-            }
-
-            error.classList.add('hidden');
-            content.classList.remove('hidden');
-
-            pipelineRuns = runs;
-            renderPipelineStats(runs);
-            renderPipelineRuns(runs);
-            renderPipelineHealth(health);
-            renderPipelineStuck(runs);
-        } catch (e) {
-            loading.classList.add('hidden');
-            if (pipelineRuns.length === 0) {
-                error.classList.remove('hidden');
-                content.classList.add('hidden');
-            }
-            console.warn('Failed to load pipeline data:', e);
-        }
-    }
-
-    function renderPipelineStats(runs) {
-        const stats = document.getElementById('pipeline-stats');
-        const total = runs.length;
-        const active = runs.filter(r => !['DONE', 'FAILED', 'MERGED', 'CLEANUP'].includes(r.state)).length;
-        const completed = runs.filter(r => r.state === 'DONE').length;
-        const failed = runs.filter(r => r.state === 'FAILED').length;
-
-        stats.innerHTML = `
-            <div class="pipeline-stat">
-                <div>
-                    <div class="pipeline-stat-value">${total}</div>
-                    <div class="pipeline-stat-label">Total</div>
-                </div>
-            </div>
-            <div class="pipeline-stat" style="border-color: rgba(59, 130, 246, 0.3);">
-                <div>
-                    <div class="pipeline-stat-value" style="color: #60a5fa;">${active}</div>
-                    <div class="pipeline-stat-label">Active</div>
-                </div>
-            </div>
-            <div class="pipeline-stat" style="border-color: rgba(34, 197, 94, 0.3);">
-                <div>
-                    <div class="pipeline-stat-value" style="color: #4ade80;">${completed}</div>
-                    <div class="pipeline-stat-label">Completed</div>
-                </div>
-            </div>
-            <div class="pipeline-stat" style="border-color: rgba(239, 68, 68, 0.3);">
-                <div>
-                    <div class="pipeline-stat-value" style="color: #f87171;">${failed}</div>
-                    <div class="pipeline-stat-label">Failed</div>
-                </div>
-            </div>
-        `;
-    }
-
-    function renderPipelineRuns(runs) {
-        const list = document.getElementById('pipeline-runs-list');
-        const empty = document.getElementById('pipeline-runs-empty');
-        const table = document.getElementById('pipeline-runs-table');
-        const count = document.getElementById('pipeline-runs-count');
-
-        count.textContent = `(${runs.length})`;
-
-        if (!runs || runs.length === 0) {
-            table.classList.add('hidden');
-            empty.classList.remove('hidden');
-            return;
-        }
-
-        empty.classList.add('hidden');
-        table.classList.remove('hidden');
-
-        list.innerHTML = '';
-        runs.forEach(run => {
-            const stateClass = PIPELINE_STATE_CLASSES[run.state] || 'pipeline-state-idle';
-            const stateIcon = PIPELINE_STATE_ICONS[run.state] || 'fa-circle';
-            const isExpanded = expandedRunId === run.id;
-
-            const prHtml = run.pr_url
-                ? `<a class="accent-link" href="${escapeHtml(run.pr_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation();">#${run.pr_url.match(/\/pull\/(\d+)/)?.[1] || 'PR'}</a>`
-                : '<span class="text-secondary">—</span>';
-
-            const started = run.created_at
-                ? new Date(run.created_at + (run.created_at.endsWith('Z') ? '' : 'Z')).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                : '—';
-
-            const duration = run.created_at ? formatPipelineDuration(run.created_at, run.state) : '—';
-
-            const row = document.createElement('tr');
-            row.className = 'pipeline-run-row';
-            row.dataset.runId = run.id;
-            row.addEventListener('click', () => togglePipelineExpand(run.id));
-
-            row.innerHTML = `
-                <td style="width: 30px; text-align: center;"><i class="fas fa-chevron-${isExpanded ? 'down' : 'right'} text-secondary" style="font-size: 9px;"></i></td>
-                <td data-label="Issue"><span class="font-medium text-emphasis">${escapeHtml(run.issue_id)}</span></td>
-                <td data-label="Project"><span class="text-xs">${escapeHtml(run.project)}</span></td>
-                <td data-label="State"><span class="pipeline-state ${stateClass}"><i class="fas ${stateIcon}" style="font-size: 7px;"></i>${escapeHtml(run.state)}</span></td>
-                <td data-label="Branch"><span class="text-xs font-mono">${run.branch ? escapeHtml(run.branch) : '<span class="text-secondary">—</span>'}</span></td>
-                <td data-label="PR">${prHtml}</td>
-                <td data-label="Started" class="text-xs text-secondary">${started}</td>
-                <td data-label="Duration" class="text-xs text-secondary">${duration}</td>
-            `;
-            list.appendChild(row);
-
-            if (isExpanded) {
-                const expandRow = document.createElement('tr');
-                expandRow.className = 'pipeline-expand-row';
-                expandRow.innerHTML = `<td colspan="8"><div class="pipeline-expand-content"><div class="text-xs text-secondary">Loading tasks...</div></div></td>`;
-                list.appendChild(expandRow);
-                loadRunDetail(run.id, expandRow);
-            }
-        });
-    }
-
-    function formatPipelineDuration(createdAt, state) {
-        const start = new Date(createdAt + (createdAt.endsWith('Z') ? '' : 'Z'));
-        const end = ['DONE', 'FAILED'].includes(state) ? start : new Date();
-        const diff = Math.floor((end - start) / 1000);
-        if (diff < 60) return `${diff}s`;
-        if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-        if (diff < 86400) return `${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`;
-        return `${Math.floor(diff / 86400)}d ${Math.floor((diff % 86400) / 3600)}h`;
-    }
-
-    async function togglePipelineExpand(runId) {
-        if (expandedRunId === runId) {
-            expandedRunId = null;
-        } else {
-            expandedRunId = runId;
-        }
-        renderPipelineRuns(pipelineRuns);
-    }
-
-    async function loadRunDetail(runId, expandRow) {
-        try {
-            const detail = await api.get(`/api/pipeline/runs/${runId}`);
-            const content = expandRow.querySelector('.pipeline-expand-content');
-
-            if (!detail.tasks || detail.tasks.length === 0) {
-                content.innerHTML = '<div class="text-xs text-secondary">No agent tasks for this run.</div>';
-                return;
-            }
-
-            const taskStatusClass = (status) => {
-                if (status === 'running') return 'pipeline-state-active';
-                if (status === 'completed' || status === 'success') return 'pipeline-state-done';
-                if (status === 'failed' || status === 'failure') return 'pipeline-state-failed';
-                return 'pipeline-state-idle';
-            };
-
-            content.innerHTML = `
-                <table class="dark-table" style="margin: 0;">
-                    <thead>
-                        <tr>
-                            <th>Stage</th>
-                            <th>Focus</th>
-                            <th>Team</th>
-                            <th>Model</th>
-                            <th style="width: 90px;">Status</th>
-                            <th>Result</th>
-                            <th>tmux</th>
-                            <th style="width: 100px;">Duration</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${detail.tasks.map(t => {
-                            const cls = taskStatusClass(t.status);
-                            const taskDuration = t.started_at
-                                ? formatPipelineDuration(t.started_at, t.completed_at ? 'DONE' : 'DEVELOPING')
-                                : '—';
-                            const tmuxHtml = t.tmux_session
-                                ? `<span class="font-mono">${escapeHtml(t.tmux_session)}</span>`
-                                : '<span class="text-secondary">—</span>';
-                            return `
-                                <tr>
-                                    <td class="text-xs">${escapeHtml(t.stage)}</td>
-                                    <td class="text-xs">${t.focus ? escapeHtml(t.focus) : '<span class="text-secondary">—</span>'}</td>
-                                    <td class="text-xs">${escapeHtml(t.team)}</td>
-                                    <td class="text-xs font-mono">${escapeHtml(t.model)}</td>
-                                    <td><span class="pipeline-state ${cls}">${escapeHtml(t.status || 'pending')}</span></td>
-                                    <td class="text-xs">${t.result ? escapeHtml(t.result) : '<span class="text-secondary">—</span>'}</td>
-                                    <td class="text-xs">${tmuxHtml}</td>
-                                    <td class="text-xs text-secondary">${taskDuration}</td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            `;
-        } catch (e) {
-            const content = expandRow.querySelector('.pipeline-expand-content');
-            content.innerHTML = `<div class="text-xs" style="color: #f87171;">Failed to load run details: ${escapeHtml(e.message)}</div>`;
-        }
-    }
-
-    function renderPipelineStuck(runs) {
-        const banner = document.getElementById('pipeline-stuck-banner');
-        const stuckList = document.getElementById('pipeline-stuck-list');
-
-        // A run is "stuck" if it's been in a non-terminal state for > 2 hours
-        const TWO_HOURS = 2 * 60 * 60 * 1000;
-        const now = Date.now();
-        const terminalStates = ['DONE', 'FAILED', 'MERGED', 'CLEANUP'];
-
-        const stuck = runs.filter(r => {
-            if (terminalStates.includes(r.state)) return false;
-            const updated = new Date(r.updated_at + (r.updated_at.endsWith('Z') ? '' : 'Z'));
-            return (now - updated.getTime()) > TWO_HOURS;
-        });
-
-        if (stuck.length === 0) {
-            banner.classList.add('hidden');
-            return;
-        }
-
-        banner.classList.remove('hidden');
-        stuckList.innerHTML = stuck.map(r =>
-            `<div class="flex items-center justify-between" style="padding: 4px 0;">
-                <span>${escapeHtml(r.issue_id)} — stuck in <strong style="color: #fde047;">${escapeHtml(r.state)}</strong></span>
-                <button class="btn btn-neutral" style="padding: 2px 8px; font-size: 11px;" onclick="retryPipelineRun('${escapeHtml(r.id)}')">
-                    <i class="fas fa-redo mr-1" style="font-size: 9px;"></i>Retry
-                </button>
-            </div>`
-        ).join('');
-    }
-
-    async function retryPipelineRun(runId) {
-        try {
-            await api.post(`/api/pipeline/runs/${runId}/retry`, {});
-            showToast('Retry requested', 'success');
-            loadPipelineData();
-        } catch (e) {
-            showToast('Failed to retry: ' + e.message, 'error');
-        }
-    }
-
-    function renderPipelineHealth(health) {
-        const el = document.getElementById('pipeline-health');
-        if (health.status === 'ok') {
-            el.innerHTML = `
-                <div class="flex items-center gap-2">
-                    <span class="status-running" style="display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">
-                        <i class="fas fa-wifi" style="font-size: 8px;"></i>Connected
-                    </span>
-                    <span class="text-xs text-secondary">pipeline controller</span>
-                </div>
-            `;
-        } else {
-            el.innerHTML = `
-                <div class="flex items-center gap-2">
-                    <span class="status-stopped" style="display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">
-                        <i class="fas fa-plug-circle-xmark" style="font-size: 8px;"></i>Unreachable
-                    </span>
-                </div>
-            `;
-        }
-    }
 </script>
 {% endblock %}
