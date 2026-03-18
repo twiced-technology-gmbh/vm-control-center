@@ -28,10 +28,7 @@
                     </button>
                     <div class="vm-overflow-divider"></div>
                     <button class="vm-overflow-item" onclick="document.getElementById('create-worker-btn').click()">
-                        <i class="fas fa-server" style="color: #60a5fa;"></i> Add Worker
-                    </button>
-                    <button class="vm-overflow-item" onclick="document.getElementById('create-vm-btn').click()">
-                        <i class="fas fa-plus" style="color: #4ade80;"></i> Create VM
+                        <i class="fas fa-server" style="color: #60a5fa;"></i> Add Host
                     </button>
                 </div>
             </div>
@@ -103,6 +100,10 @@
                             <i class="fas fa-ellipsis-vertical" style="font-size: 11px;"></i>
                         </button>
                         <div class="vm-overflow-menu">
+                            <button class="vm-overflow-item" onclick="document.getElementById('create-vm-btn').click()">
+                                <i class="fas fa-plus" style="color: #4ade80;"></i> Create VM
+                            </button>
+                            <div class="vm-overflow-divider"></div>
                             <button class="vm-overflow-item" onclick="checkLogins()">
                                 <i class="fas fa-fingerprint" style="color: var(--text-secondary);"></i> Check Logins
                             </button>
