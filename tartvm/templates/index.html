@@ -26,10 +26,6 @@
                     <button class="vm-overflow-item" onclick="document.getElementById('settings-btn').click()">
                         <i class="fas fa-cog" style="color: #c084fc;"></i> Settings
                     </button>
-                    <div class="vm-overflow-divider"></div>
-                    <button class="vm-overflow-item" onclick="document.getElementById('create-worker-btn').click()">
-                        <i class="fas fa-server" style="color: #60a5fa;"></i> Add Host
-                    </button>
                 </div>
             </div>
         </div>
@@ -53,10 +49,15 @@
     <!-- Hosts Panel -->
     <div id="hosts-panel" class="mt-4 hidden">
         <div class="surface rounded-lg">
-            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border);" class="flex items-center gap-3">
-                <i class="fas fa-network-wired" style="color: #fb923c;"></i>
-                <span class="text-sm font-medium text-emphasis">Hosts</span>
-                <span class="text-xs text-secondary">(Orchard Workers)</span>
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border);" class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-network-wired" style="color: #fb923c;"></i>
+                    <span class="text-sm font-medium text-emphasis">Hosts</span>
+                    <span class="text-xs text-secondary">(Orchard Workers)</span>
+                </div>
+                <button class="icon-btn icon-btn-blue" data-tooltip="Add Host" onclick="document.getElementById('create-worker-btn').click()">
+                    <i class="fas fa-plus" style="font-size: 11px;"></i>
+                </button>
             </div>
             <div id="hosts-list" style="padding: 12px 16px;">
             </div>
