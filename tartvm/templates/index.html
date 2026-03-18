@@ -10,18 +10,31 @@
             <button class="tab" data-tab="images">Images</button>
         </div>
         <div class="flex gap-1">
-            <button id="refresh-btn" class="icon-btn icon-btn-orange" data-tooltip="Refresh">
-                <i class="fas fa-sync-alt" style="font-size: 11px;"></i>
-            </button>
-            <button id="settings-btn" class="icon-btn icon-btn-purple" data-tooltip="Settings">
-                <i class="fas fa-cog" style="font-size: 11px;"></i>
-            </button>
-            <button id="create-worker-btn" class="icon-btn icon-btn-blue" data-tooltip="Add Worker">
-                <i class="fas fa-server" style="font-size: 11px;"></i>
-            </button>
-            <button id="create-vm-btn" class="icon-btn icon-btn-green" data-tooltip="Create VM">
-                <i class="fas fa-plus" style="font-size: 11px;"></i>
-            </button>
+            <!-- hidden stubs — retain IDs for existing JS event listeners -->
+            <button id="refresh-btn" style="display:none"><i class="fas fa-sync-alt"></i></button>
+            <button id="settings-btn" style="display:none"><i class="fas fa-cog"></i></button>
+            <button id="create-worker-btn" style="display:none"><i class="fas fa-server"></i></button>
+            <button id="create-vm-btn" style="display:none"><i class="fas fa-plus"></i></button>
+            <div class="vm-overflow">
+                <button class="icon-btn icon-btn-blue vm-overflow-btn" data-tooltip="Actions">
+                    <i class="fas fa-ellipsis-vertical" style="font-size: 11px;"></i>
+                </button>
+                <div class="vm-overflow-menu">
+                    <button class="vm-overflow-item" onclick="document.getElementById('refresh-btn').click()">
+                        <i class="fas fa-sync-alt" style="color: #fb923c;"></i> Refresh
+                    </button>
+                    <button class="vm-overflow-item" onclick="document.getElementById('settings-btn').click()">
+                        <i class="fas fa-cog" style="color: #c084fc;"></i> Settings
+                    </button>
+                    <div class="vm-overflow-divider"></div>
+                    <button class="vm-overflow-item" onclick="document.getElementById('create-worker-btn').click()">
+                        <i class="fas fa-server" style="color: #60a5fa;"></i> Add Worker
+                    </button>
+                    <button class="vm-overflow-item" onclick="document.getElementById('create-vm-btn').click()">
+                        <i class="fas fa-plus" style="color: #4ade80;"></i> Create VM
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -79,21 +92,35 @@
                     <span class="text-xs text-secondary">(Orchard managed)</span>
                 </div>
                 <div class="flex items-center gap-1">
-                    <button id="check-logins-btn" class="icon-btn icon-btn-neutral" data-tooltip="Check Logins" onclick="checkLogins()">
-                        <i class="fas fa-fingerprint" style="font-size: 11px;"></i>
-                    </button>
-                    <button id="bulk-start-btn" class="icon-btn icon-btn-green" data-tooltip="Start All">
-                        <i class="fas fa-play" style="font-size: 11px;"></i>
-                    </button>
-                    <button id="bulk-restart-btn" class="icon-btn icon-btn-blue" data-tooltip="Restart All">
-                        <i class="fas fa-redo" style="font-size: 11px;"></i>
-                    </button>
-                    <button id="bulk-snapshot-btn" class="icon-btn icon-btn-amber" data-tooltip="Snapshot All">
-                        <i class="fas fa-camera" style="font-size: 11px;"></i>
-                    </button>
-                    <button id="global-snapshots-btn" class="icon-btn icon-btn-indigo" data-tooltip="Manage Snapshots">
-                        <i class="fas fa-layer-group" style="font-size: 11px;"></i>
-                    </button>
+                    <!-- hidden stubs — retain IDs for existing JS event listeners -->
+                    <button id="check-logins-btn" style="display:none" onclick="checkLogins()"><i class="fas fa-fingerprint"></i></button>
+                    <button id="bulk-start-btn" style="display:none"><i class="fas fa-play"></i></button>
+                    <button id="bulk-restart-btn" style="display:none"><i class="fas fa-redo"></i></button>
+                    <button id="bulk-snapshot-btn" style="display:none"><i class="fas fa-camera"></i></button>
+                    <button id="global-snapshots-btn" style="display:none"><i class="fas fa-layer-group"></i></button>
+                    <div class="vm-overflow">
+                        <button class="icon-btn icon-btn-blue vm-overflow-btn" data-tooltip="Bulk Actions">
+                            <i class="fas fa-ellipsis-vertical" style="font-size: 11px;"></i>
+                        </button>
+                        <div class="vm-overflow-menu">
+                            <button class="vm-overflow-item" onclick="checkLogins()">
+                                <i class="fas fa-fingerprint" style="color: var(--text-secondary);"></i> Check Logins
+                            </button>
+                            <div class="vm-overflow-divider"></div>
+                            <button class="vm-overflow-item" onclick="document.getElementById('bulk-start-btn').click()">
+                                <i class="fas fa-play" style="color: #4ade80;"></i> Start All
+                            </button>
+                            <button class="vm-overflow-item" onclick="document.getElementById('bulk-restart-btn').click()">
+                                <i class="fas fa-redo" style="color: #60a5fa;"></i> Restart All
+                            </button>
+                            <button class="vm-overflow-item" onclick="document.getElementById('bulk-snapshot-btn').click()">
+                                <i class="fas fa-camera" style="color: #fbbf24;"></i> Snapshot All
+                            </button>
+                            <button class="vm-overflow-item" onclick="document.getElementById('global-snapshots-btn').click()">
+                                <i class="fas fa-layer-group" style="color: #a5b4fc;"></i> Manage Snapshots
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div id="vms-table" class="hidden overflow-x-auto">
@@ -1872,7 +1899,7 @@
                 <td data-label="Actions" style="text-align: right;">
                     <div class="flex gap-1 justify-end items-center">
                         <div class="vm-overflow">
-                            <button class="icon-btn icon-btn-neutral vm-overflow-btn" data-tooltip="More actions">
+                            <button class="icon-btn icon-btn-blue vm-overflow-btn" data-tooltip="More actions">
                                 <i class="fas fa-ellipsis-vertical" style="font-size: 11px;"></i>
                             </button>
                             <div class="vm-overflow-menu">
@@ -1997,7 +2024,7 @@
                 <td data-label="Actions" style="text-align: right; white-space: nowrap;">
                     <div class="flex gap-1 justify-end">
                         <div class="vm-overflow">
-                            <button class="icon-btn icon-btn-neutral vm-overflow-btn" data-tooltip="More actions">
+                            <button class="icon-btn icon-btn-blue vm-overflow-btn" data-tooltip="More actions">
                                 <i class="fas fa-ellipsis-vertical" style="font-size: 11px;"></i>
                             </button>
                             <div class="vm-overflow-menu">
