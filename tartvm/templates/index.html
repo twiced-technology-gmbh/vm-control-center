@@ -2252,15 +2252,29 @@
         showPrompt('Create VM: ' + vmName, generateCreateVmPrompt(vmName, image, worker, cpu, memory, disk, startup));
     }
 
-    async function removeHost(name) {
-        if (!confirm(`Remove host "${name}" from Orchard? The machine itself is unaffected.`)) return;
-        try {
-            await api.delete(`/api/hosts/${encodeURIComponent(name)}`);
-            showToast(`Host "${name}" removed`, 'success');
-            loadVMs();
-        } catch (e) {
-            showToast(`Failed to remove host: ${e.message}`, 'error');
-        }
+    function removeHost(name) {
+        showPrompt('Remove Host: ' + name, generateRemoveHostPrompt(name));
+    }
+
+    function generateRemoveHostPrompt(name) {
+        return `Remove Orchard worker "${name}" from the controller.
+
+1. Stop the worker process on ${name}:
+   \`\`\`
+   launchctl unload ~/Library/LaunchAgents/org.cirruslabs.orchard.worker.plist
+   \`\`\`
+
+2. Remove the worker registration from the Orchard controller:
+   \`\`\`
+   orchard delete worker ${name}
+   \`\`\`
+
+3. Verify it's gone:
+   \`\`\`
+   orchard list workers
+   \`\`\`
+
+Note: VMs still assigned to this worker will show an unknown worker. Re-assign or delete them as needed.`;
     }
 
     function editHost(name) {
@@ -2317,6 +2331,10 @@ Note: The old worker entry "${oldName}" will disappear once it disconnects. VMs 
         promptOutput.textContent = prompt;
         promptCopiedBadge.classList.add('hidden');
         showModal(promptModal);
+        navigator.clipboard.writeText(prompt).then(() => {
+            promptCopiedBadge.classList.remove('hidden');
+            setTimeout(() => promptCopiedBadge.classList.add('hidden'), 2000);
+        }).catch(() => {});
     }
 
     async function handleCopyPrompt() {

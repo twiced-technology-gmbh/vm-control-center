@@ -236,15 +236,6 @@ async def get_orchard_hosts():
         return []
 
 
-@app.delete("/api/hosts/{name}", dependencies=[Depends(verify_token)])
-async def delete_host(name: str):
-    """Remove an Orchard worker by name."""
-    status_code, body = await task_manager.delete_worker(name)
-    if status_code not in (200, 204):
-        raise HTTPException(status_code=status_code, detail=str(body))
-    return {"ok": True}
-
-
 @app.get("/api/events")
 async def events_stream(request: Request, token: str = ""):
     """SSE endpoint — pushes VM + host state on every inventory refresh."""

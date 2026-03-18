@@ -433,10 +433,6 @@ class TaskManager:
             return []
         return body
 
-    async def delete_worker(self, name: str) -> Tuple[int, Any]:
-        """Remove an Orchard worker by name."""
-        return await self._orchard_request("DELETE", f"/v1/workers/{name}")
-
     async def orchard_create_vm(self, body: dict, timeout: float = 600) -> Tuple[int, Any]:
         """Create a VM via the Orchard API. Returns (status_code, response_body)."""
         return await self._orchard_request("POST", "/v1/vms", json_body=body, timeout=timeout)
