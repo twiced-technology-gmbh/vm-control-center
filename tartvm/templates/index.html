@@ -10,24 +10,15 @@
             <button class="tab" data-tab="images">Images</button>
         </div>
         <div class="flex gap-1">
+            <button id="refresh-btn" class="icon-btn icon-btn-orange" data-tooltip="Refresh">
+                <i class="fas fa-sync-alt" style="font-size: 11px;"></i>
+            </button>
+            <button id="settings-btn" class="icon-btn icon-btn-purple" data-tooltip="Settings">
+                <i class="fas fa-cog" style="font-size: 11px;"></i>
+            </button>
             <!-- hidden stubs — retain IDs for existing JS event listeners -->
-            <button id="refresh-btn" style="display:none"><i class="fas fa-sync-alt"></i></button>
-            <button id="settings-btn" style="display:none"><i class="fas fa-cog"></i></button>
             <button id="create-worker-btn" style="display:none"><i class="fas fa-server"></i></button>
             <button id="create-vm-btn" style="display:none"><i class="fas fa-plus"></i></button>
-            <div class="vm-overflow">
-                <button class="icon-btn icon-btn-blue vm-overflow-btn" data-tooltip="Actions">
-                    <i class="fas fa-ellipsis-vertical" style="font-size: 11px;"></i>
-                </button>
-                <div class="vm-overflow-menu">
-                    <button class="vm-overflow-item" onclick="document.getElementById('refresh-btn').click()">
-                        <i class="fas fa-sync-alt" style="color: #fb923c;"></i> Refresh
-                    </button>
-                    <button class="vm-overflow-item" onclick="document.getElementById('settings-btn').click()">
-                        <i class="fas fa-cog" style="color: #c084fc;"></i> Settings
-                    </button>
-                </div>
-            </div>
         </div>
     </div>
 
