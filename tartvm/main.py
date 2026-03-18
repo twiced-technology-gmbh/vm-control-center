@@ -45,6 +45,11 @@ from .models import (
 from .tasks import task_manager
 
 
+_VM_PATH_SETUP = (
+    'export PATH="$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$PATH" && '
+    '[ -f "$HOME/.profile" ] && . "$HOME/.profile" 2>/dev/null; '
+)
+
 # Track background tasks for proper cleanup
 background_tasks: set = set()
 
@@ -82,8 +87,30 @@ class DeleteSnapshotsRequest(BaseModel):
     names: List[str]
 
 
+class SyncPath(BaseModel):
+    vm: str
+    local: Optional[str] = None
+
+
+class ServiceConfigRequest(BaseModel):
+    systemd_unit: str
+    app_dir: str
+    dev_command: Optional[str] = None
+    dev_proc_pattern: Optional[str] = None
+    caddy_domain: Optional[str] = None
+    prod_upstream: Optional[str] = None
+    dev_host: Optional[str] = None
+    sync_paths: Optional[List[SyncPath]] = None
+
+
+class ServiceModeRequest(BaseModel):
+    mode: str
+    dev_host: Optional[str] = None
+    sync_locals: Optional[dict[str, str]] = None
+
+
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG if settings.DEBUG else logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -260,7 +287,6 @@ _TAILSCALE_CACHE_TTL: float = 15.0  # seconds
 
 async def _get_tailscale_name_to_ip() -> Dict[str, str]:
     """Get Tailscale hostname → IPv4 mapping for self + all peers (cached)."""
-    import time
     global _tailscale_cache, _tailscale_cache_time
 
     now = time.monotonic()
@@ -490,6 +516,40 @@ async def list_images():
     return await task_manager.get_images()
 
 
+@app.delete("/api/images/{name}", dependencies=[Depends(verify_token)])
+async def delete_image(name: str):
+    """Delete a local Tart image by name."""
+    proc = await asyncio.create_subprocess_exec(
+        settings.TART_PATH, "delete", name,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        raise HTTPException(status_code=400, detail=stderr.decode().strip())
+    await task_manager._refresh_images()
+    return {"ok": True}
+
+
+class RenameImageRequest(BaseModel):
+    new_name: str
+
+
+@app.post("/api/images/{name}/rename", dependencies=[Depends(verify_token)])
+async def rename_image(name: str, body: RenameImageRequest):
+    """Rename a local Tart image by moving its directory."""
+    tart_dir = Path.home() / ".tart" / "vms"
+    src = tart_dir / name
+    dst = tart_dir / body.new_name
+    if not src.exists():
+        raise HTTPException(status_code=404, detail=f"Image '{name}' not found")
+    if dst.exists():
+        raise HTTPException(status_code=409, detail=f"Image '{body.new_name}' already exists")
+    src.rename(dst)
+    await task_manager._refresh_images()
+    return {"ok": True}
+
+
 # --- VM endpoints (Orchard) ---
 
 @app.get("/api/vms", response_model=List[VMModel], dependencies=[Depends(verify_token)])
@@ -566,7 +626,6 @@ async def _create_vm(task_id: str, payload: CreateVMRequest):
 @app.get("/api/snapshots", dependencies=[Depends(verify_token)])
 async def list_all_snapshots():
     """List all snapshots across all workers (local tart images that aren't orchard clones or OCI)."""
-    import re
     results = []
     seen_workers = set()
 
@@ -760,23 +819,15 @@ async def list_snapshots(vm_name: str):
 
 async def _get_snapshot_birth_times(worker: str, vm_name: str) -> dict:
     """Get filesystem birth times for snapshot images on a worker."""
-    local_host = socket.gethostname().lower().split(".")[0]
-    is_local = worker.lower().split(".")[0] == local_host
-
-    if is_local:
-        from pathlib import Path
+    if _is_local_worker(worker):
         tart_dir = Path.home() / ".tart" / "vms"
         dirs = [str(p) for p in tart_dir.iterdir() if p.is_dir() and (p.name == vm_name or p.name.startswith(f"{vm_name}-"))]
         if not dirs:
             return {}
         cmd = ["stat", "-f", "%N\t%SB", "-t", "%Y-%m-%dT%H:%M:%SZ"] + dirs
     else:
-        worker_cfg = settings.REMOTE_WORKERS.get(worker)
-        if not worker_cfg:
-            return {}
         cmd_str = f"stat -f '%N\\t%SB' -t '%Y-%m-%dT%H:%M:%SZ' ~/.tart/vms/{vm_name}/ ~/.tart/vms/{vm_name}-*/ 2>/dev/null"
-        cmd = ["ssh", "-i", worker_cfg["key"], "-o", "ConnectTimeout=5",
-               f"{worker_cfg['user']}@{worker_cfg['host']}", cmd_str]
+        cmd = _build_tart_ssh_cmd(worker, cmd_str)
 
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -833,9 +884,10 @@ _GIT_PROFILES_FILE = Path.home() / ".vm-control-center" / "git-profiles.json"
 
 
 def _load_git_profiles() -> list[dict]:
-    if not _GIT_PROFILES_FILE.exists():
+    try:
+        return json.loads(_GIT_PROFILES_FILE.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
         return []
-    return json.loads(_GIT_PROFILES_FILE.read_text())
 
 
 def _save_git_profiles(profiles: list[dict]) -> None:
@@ -852,10 +904,10 @@ def _save_vm_config(vm_name: str, config: dict) -> None:
 
 def _load_vm_config(vm_name: str) -> dict | None:
     """Load a previously saved VM config from disk."""
-    path = _VM_CONFIGS_DIR / f"{vm_name}.json"
-    if path.exists():
-        return json.loads(path.read_text())
-    return None
+    try:
+        return json.loads((_VM_CONFIGS_DIR / f"{vm_name}.json").read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
 
 
 def _delete_saved_vm_config(vm_name: str) -> None:
@@ -1029,10 +1081,11 @@ def _is_local_worker(worker: str) -> bool:
 
 async def _run_tart_on_worker(args: list, worker: str, timeout: float = 30.0) -> tuple:
     """Run a tart command on the correct worker (local or SSH). Returns (returncode, stdout, stderr)."""
+    import shlex
     if _is_local_worker(worker):
         cmd = [settings.TART_PATH] + args
     else:
-        tart_cmd = f"{settings.REMOTE_TART_PATH} {' '.join(args)}"
+        tart_cmd = f"{settings.REMOTE_TART_PATH} {' '.join(shlex.quote(a) for a in args)}"
         cmd = _build_tart_ssh_cmd(worker, tart_cmd)
 
     proc = await asyncio.create_subprocess_exec(
@@ -1209,7 +1262,7 @@ async def apply_git_profile(vm_name: str, req: ApplyProfileRequest):
         raise HTTPException(status_code=404, detail="Profile not found")
 
     tart_name, worker = await task_manager.resolve_tart_name(vm_name)
-    path_setup = 'export PATH="$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$PATH" && [ -f "$HOME/.profile" ] && . "$HOME/.profile" 2>/dev/null; '
+    path_setup = _VM_PATH_SETUP
 
     commands = []
     pid = profile["id"]
@@ -1269,7 +1322,7 @@ async def get_applied_git_profile(vm_name: str):
 async def get_cli_auth_status(vm_name: str):
     """Check GitHub/GitLab CLI auth status on a VM."""
     tart_name, worker = await task_manager.resolve_tart_name(vm_name)
-    path_setup = 'export PATH="$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$PATH" && [ -f "$HOME/.profile" ] && . "$HOME/.profile" 2>/dev/null; '
+    path_setup = _VM_PATH_SETUP
 
     cmd_str = path_setup + (
         'echo "::GH::"; (gh auth status 2>&1 || echo "NOT_AUTHED"); '
@@ -1320,6 +1373,343 @@ async def get_cli_auth_status(vm_name: str):
     }
 
 
+# --- Service Mode ---
+
+
+@app.get("/api/vms/{vm_name}/service-config", dependencies=[Depends(verify_token)])
+async def get_service_config(vm_name: str):
+    """Return the service config for a VM (or null if not configured)."""
+    vm_cfg = _load_vm_config(vm_name) or {}
+    return {"service": vm_cfg.get("service")}
+
+
+@app.put("/api/vms/{vm_name}/service-config", dependencies=[Depends(verify_token)])
+async def set_service_config(vm_name: str, req: ServiceConfigRequest):
+    """Save service config to the VM's config JSON."""
+    vm_cfg = _load_vm_config(vm_name) or {}
+    svc = {
+        "systemd_unit": req.systemd_unit,
+        "app_dir": req.app_dir,
+        "dev_command": req.dev_command or "make dev",
+        "dev_proc_pattern": req.dev_proc_pattern or "make dev",
+    }
+    if req.caddy_domain:
+        svc["caddy_domain"] = req.caddy_domain
+    if req.prod_upstream:
+        svc["prod_upstream"] = req.prod_upstream
+    if req.dev_host:
+        svc["dev_host"] = req.dev_host
+    if req.sync_paths:
+        svc["sync_paths"] = [sp.model_dump() for sp in req.sync_paths]
+    vm_cfg["service"] = svc
+    _save_vm_config(vm_name, vm_cfg)
+    return {"service": vm_cfg["service"]}
+
+
+@app.delete("/api/vms/{vm_name}/service-config", dependencies=[Depends(verify_token)])
+async def delete_service_config(vm_name: str):
+    """Remove service config from the VM's config JSON."""
+    vm_cfg = _load_vm_config(vm_name) or {}
+    vm_cfg.pop("service", None)
+    _save_vm_config(vm_name, vm_cfg)
+    return {"deleted": True}
+
+
+def _pgrep_safe_pattern(pattern: str) -> str:
+    """Wrap first char in brackets so pgrep/pkill doesn't match itself."""
+    if not pattern:
+        return pattern
+    return f"[{pattern[0]}]{pattern[1:]}"
+
+
+async def _get_caddy_upstream(domain: str) -> str | None:
+    """Read the current Caddy upstream for a domain from the Caddyfile on the Caddy host."""
+    try:
+        cmd = ["ssh", "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=5"]
+        if settings.SSH_KEY:
+            cmd += ["-i", settings.SSH_KEY]
+        cmd += [f"{settings.SSH_USER}@{settings.CADDY_HOST}",
+                f"grep -A5 '{domain}' ~/Applications/caddy/Caddyfile | grep reverse_proxy | head -1"]
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
+        # e.g. "	reverse_proxy 100.112.238.48:3200"
+        line = stdout.decode().strip()
+        if "reverse_proxy" in line:
+            return line.split("reverse_proxy")[-1].strip()
+    except Exception:
+        pass
+    return None
+
+
+async def _resolve_dev_upstream(service: dict) -> str | None:
+    """Resolve dev_host + prod port into a dev upstream like '100.x.x.x:3200'."""
+    dev_host = service.get("dev_host")
+    prod_upstream = service.get("prod_upstream", "")
+    if not dev_host:
+        return None
+    ts = await _get_tailscale_name_to_ip()
+    ts_lower = {k.lower(): v for k, v in ts.items()}
+    ip = ts_lower.get(dev_host.lower())
+    if not ip:
+        return None
+    port = prod_upstream.split(":")[-1] if ":" in prod_upstream else "80"
+    return f"{ip}:{port}"
+
+
+@app.get("/api/vms/{vm_name}/service-mode", dependencies=[Depends(verify_token)])
+async def get_service_mode(vm_name: str):
+    """Detect current mode by checking which Caddy upstream is active."""
+    vm_cfg = _load_vm_config(vm_name) or {}
+    service = vm_cfg.get("service")
+    if not service:
+        return {"mode": None}
+
+    caddy_domain = service.get("caddy_domain")
+    if not caddy_domain:
+        return {"mode": "prod"}
+
+    dev_upstream = await _resolve_dev_upstream(service)
+    if not dev_upstream:
+        return {"mode": "prod"}
+
+    current = await _get_caddy_upstream(caddy_domain)
+    mode = "dev" if current and current == dev_upstream else "prod"
+    result = {"mode": mode}
+    if mode == "dev":
+        prod_upstream = service.get("prod_upstream", "")
+        port = prod_upstream.split(":")[-1] if ":" in prod_upstream else None
+        if port:
+            result["dev_url"] = f"http://localhost:{port}"
+        result["caddy_url"] = f"https://{caddy_domain}"
+    return result
+
+
+@app.post("/api/vms/{vm_name}/service-mode", response_model=TaskModel, dependencies=[Depends(verify_token)])
+async def set_service_mode(vm_name: str, req: ServiceModeRequest, request: Request):
+    """Switch a VM's service between dev and prod mode (async task)."""
+    if req.mode not in ("dev", "prod"):
+        raise HTTPException(status_code=400, detail="mode must be 'dev' or 'prod'")
+    vm_cfg = _load_vm_config(vm_name) or {}
+    service = vm_cfg.get("service")
+    if not service:
+        raise HTTPException(status_code=404, detail="No service config for this VM")
+
+    # Request overrides take precedence over config
+    effective_service = {**service}
+    if req.dev_host:
+        effective_service["dev_host"] = req.dev_host
+    elif not effective_service.get("dev_host"):
+        # Auto-detect from caller's IP → Tailscale hostname
+        caller_ip = request.client.host if request.client else None
+        if caller_ip:
+            ts = await _get_tailscale_name_to_ip()
+            ip_to_name = {v: k for k, v in ts.items()}
+            effective_service["dev_host"] = ip_to_name.get(caller_ip, caller_ip)
+
+    # Merge sync_locals into sync_paths
+    if req.sync_locals:
+        for sp in effective_service.get("sync_paths", []):
+            if isinstance(sp, dict) and sp["vm"] in req.sync_locals:
+                sp["local"] = req.sync_locals[sp["vm"]]
+
+    task = await task_manager.create_task("switch_service_mode")
+    create_background_task(_switch_service_mode(task.id, vm_name, req.mode, effective_service))
+    return task
+
+
+async def _update_caddy_upstream(domain: str, new_upstream: str, task_id: str) -> None:
+    """Update a Caddy reverse_proxy upstream on the Caddy host and reload."""
+    import shlex
+    await task_manager.update_task(task_id, log=f"Updating Caddy: {domain} → {new_upstream}")
+    cf = "~/Applications/caddy/Caddyfile"
+    # Find the domain line, then the reverse_proxy within the next 10 lines, replace by line number
+    find_cmd = (
+        f'LINE=$(grep -n "{domain}" {cf} | head -1 | cut -d: -f1) && '
+        f'RPLINE=$(sed -n "${{LINE}},$((LINE+10))p" {cf} | grep -n "reverse_proxy" | head -1 | cut -d: -f1) && '
+        f'ACTUAL=$((LINE + RPLINE - 1)) && '
+        f'sed -i "" "${{ACTUAL}}s|reverse_proxy .*|reverse_proxy {new_upstream}|" {cf}'
+    )
+    reload_cmd = f"{settings.CADDY_BINARY} reload --config {cf}"
+    remote_cmd = f"{find_cmd} && {reload_cmd}"
+
+    cmd = ["ssh", "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=5"]
+    if settings.SSH_KEY:
+        cmd += ["-i", settings.SSH_KEY]
+    cmd += [f"{settings.SSH_USER}@{settings.CADDY_HOST}", remote_cmd]
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=15)
+    if proc.returncode != 0:
+        raise RuntimeError(f"Caddy update failed: {(stdout + stderr).decode().strip()}")
+
+
+async def _sync_db_via_api(service: dict, direction: str, local_path: str, task_id: str) -> bool:
+    """Sync a DB via cockpit's /api/db/backup and /api/db/restore endpoints.
+    Returns True if the API-based sync was used."""
+    prod_upstream = service.get("prod_upstream", "")
+    dev_upstream = await _resolve_dev_upstream(service)
+    # Determine the running cockpit URL (whichever side is currently active)
+    if direction == "from_vm":
+        url = f"http://{prod_upstream}"
+    else:
+        url = f"http://{dev_upstream}" if dev_upstream else None
+    if not url:
+        return False
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
+            if direction == "from_vm":
+                async with session.get(f"{url}/api/db/backup") as resp:
+                    if resp.status != 200:
+                        return False
+                    data = await resp.read()
+                    if len(data) < 100:
+                        return False
+                    Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+                    Path(local_path).write_bytes(data)
+                    return True
+            else:
+                local = Path(local_path)
+                if not local.exists() or local.stat().st_size < 100:
+                    return False
+                # Create a clean backup locally first (merge WAL)
+                import sqlite3 as _sqlite3
+                backup_path = Path(f"/tmp/_sync_backup_{os.getpid()}.db")
+                try:
+                    src = _sqlite3.connect(str(local))
+                    dst = _sqlite3.connect(str(backup_path))
+                    src.backup(dst)
+                    dst.close()
+                    src.close()
+                    data = backup_path.read_bytes()
+                finally:
+                    backup_path.unlink(missing_ok=True)
+                async with session.post(f"{url}/api/db/restore", data=data) as resp:
+                    return resp.status == 200
+    except Exception as e:
+        logger.warning("API-based DB sync failed (%s): %s", direction, e)
+        return False
+
+
+async def _sync_file_from_vm(tart_name: str, worker: str, vm_path: str, local_path: str,
+                              service: dict | None = None) -> None:
+    """Copy a DB from VM to local. Prefers /api/db/backup, falls back to tart exec."""
+    if service and vm_path.endswith(".db"):
+        if await _sync_db_via_api(service, "from_vm", local_path, ""):
+            return
+    # Fallback: raw file copy via tart exec
+    import shlex
+    cat_cmd = f"cat {shlex.quote(vm_path)}"
+    if _is_local_worker(worker):
+        cmd = [settings.TART_PATH, "exec", tart_name, "bash", "-c", cat_cmd]
+    else:
+        tart_cmd = f"{settings.REMOTE_TART_PATH} exec {shlex.quote(tart_name)} bash -c {shlex.quote(cat_cmd)}"
+        cmd = _build_tart_ssh_cmd(worker, tart_cmd)
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    stdout_raw, _ = await asyncio.wait_for(proc.communicate(), timeout=30)
+    if proc.returncode != 0:
+        raise RuntimeError(f"Failed to read {vm_path} from VM")
+    if len(stdout_raw) == 0:
+        logger.warning("Skipping sync from VM: %s is empty", vm_path)
+        return
+    Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(local_path).write_bytes(stdout_raw)
+
+
+async def _sync_file_to_vm(tart_name: str, worker: str, local_path: str, vm_path: str,
+                             service: dict | None = None) -> None:
+    """Copy a DB from local to VM. Prefers /api/db/restore, falls back to tart exec."""
+    local = Path(local_path)
+    if not local.exists() or local.stat().st_size == 0:
+        logger.warning("Skipping sync to VM: local file %s is missing or empty", local_path)
+        return
+    if service and local_path.endswith(".db"):
+        if await _sync_db_via_api(service, "to_vm", local_path, ""):
+            return
+    # Fallback: raw file copy via tart exec
+    import shlex
+    data = local.read_bytes()
+    if len(data) == 0:
+        return
+    if _is_local_worker(worker):
+        cmd = [settings.TART_PATH, "exec", tart_name, "bash", "-c", f"cat > {vm_path}"]
+    else:
+        tart_cmd = f"{settings.REMOTE_TART_PATH} exec {shlex.quote(tart_name)} bash -c {shlex.quote(f'cat > {vm_path}')}"
+        cmd = _build_tart_ssh_cmd(worker, tart_cmd)
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr_raw = await asyncio.wait_for(proc.communicate(input=data), timeout=30)
+    if proc.returncode != 0:
+        raise RuntimeError(f"Failed to write {vm_path} to VM: {stderr_raw.decode().strip()}")
+
+
+async def _vm_systemctl(tart_name: str, worker: str, action: str, unit: str) -> None:
+    """Run systemctl start/stop on a VM."""
+    cmd_str = f"sudo systemctl {action} {unit}"
+    await _run_tart_on_worker(["exec", tart_name, "bash", "-c", cmd_str], worker, timeout=15)
+
+
+async def _switch_service_mode(task_id: str, vm_name: str, mode: str, service: dict):
+    caddy_domain = service.get("caddy_domain")
+    prod_upstream = service.get("prod_upstream")
+    unit = service.get("systemd_unit")
+    sync_paths = service.get("sync_paths", [])
+    try:
+        await task_manager.update_task(task_id, status=TaskStatus.RUNNING, log=f"Switching {vm_name} to {mode} mode...")
+        tart_name, worker = await task_manager.resolve_tart_name(vm_name)
+
+        # Filter sync_paths to those that have a local path resolved
+        resolved_syncs = [sp for sp in sync_paths if isinstance(sp, dict) and sp.get("local")]
+
+        if mode == "dev":
+            # 1. Sync DB from VM BEFORE stopping (API backup works while running)
+            for sp in resolved_syncs:
+                await task_manager.update_task(task_id, log=f"Syncing {sp['vm']} → {sp['local']}")
+                await _sync_file_from_vm(tart_name, worker, sp["vm"], sp["local"], service=service)
+
+            # 2. Stop VM service
+            if unit:
+                await task_manager.update_task(task_id, log=f"Stopping {unit} on VM...")
+                await _vm_systemctl(tart_name, worker, "stop", unit)
+
+            # 3. Update Caddy to point to dev host
+            if caddy_domain and prod_upstream:
+                dev_upstream = await _resolve_dev_upstream(service)
+                if not dev_upstream:
+                    raise RuntimeError(f"Cannot resolve dev host '{service.get('dev_host')}'")
+                await _update_caddy_upstream(caddy_domain, dev_upstream, task_id)
+
+        else:  # prod
+            # 1. Sync DB to VM via restore API (cockpit on VM will be started after)
+            # First start the service so restore API is available
+            if unit:
+                await task_manager.update_task(task_id, log=f"Starting {unit} on VM...")
+                await _vm_systemctl(tart_name, worker, "start", unit)
+                await asyncio.sleep(2)  # wait for service to be ready
+
+            for sp in resolved_syncs:
+                await task_manager.update_task(task_id, log=f"Syncing {sp['local']} → {sp['vm']}")
+                await _sync_file_to_vm(tart_name, worker, sp["local"], sp["vm"], service=service)
+
+            # 2. Update Caddy to point to VM
+            if caddy_domain and prod_upstream:
+                await _update_caddy_upstream(caddy_domain, prod_upstream, task_id)
+
+        await task_manager.update_task(
+            task_id, status=TaskStatus.COMPLETED,
+            log=f"Switched to {mode} mode."
+        )
+    except Exception as e:
+        await task_manager.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
+
+
 # --- Login Status Check (all VMs) ---
 
 _login_cache: Dict[str, Dict] = {}
@@ -1346,8 +1736,7 @@ def _save_login_cache():
 _load_login_cache()
 
 _LOGIN_CHECK_CMD = (
-    'export PATH="$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"; '
-    '[ -f "$HOME/.profile" ] && . "$HOME/.profile" 2>/dev/null; '
+    _VM_PATH_SETUP +
     'echo "::GH::"; gh auth status 2>&1 || echo "NOT_AUTHED"; '
     'echo "::GL::"; glab auth status 2>&1 || echo "NOT_AUTHED"; '
     'echo "::CLAUDE::"; claude auth status 2>&1 || echo "NOT_AUTHED"; '
@@ -1684,24 +2073,14 @@ async def websocket_agent_login(websocket: WebSocket, vm_name: str):
     )
     cmd_str = path_setup + install_prefix + action_cmd
 
-    local_hostname = socket.gethostname().lower()
-    is_local = worker and worker.lower() == local_hostname
-
-    def _remote_ssh_cmd(wk, inner_cmd):
-        """Build SSH command to execute on a remote worker."""
-        ssh = ["ssh"]
-        if settings.SSH_KEY:
-            ssh += ["-i", settings.SSH_KEY]
-        ssh += ["-o", "StrictHostKeyChecking=accept-new",
-                f"{settings.SSH_USER}@{wk}", inner_cmd]
-        return ssh
+    is_local = _is_local_worker(worker)
 
     if is_local:
         cmd = [settings.TART_PATH, "exec", "-i", tart_name, "bash", "-c", cmd_str]
     else:
         escaped_cmd = cmd_str.replace("'", "'\\''")
         inner = f"{settings.REMOTE_TART_PATH} exec -i {tart_name} bash -c '{escaped_cmd}'"
-        cmd = _remote_ssh_cmd(worker, inner)
+        cmd = _build_tart_ssh_cmd(worker, inner)
 
     async def _find_agent_port_raw(tn, wk, loc):
         """List all listening ports inside the VM (works on macOS and Linux)."""
@@ -1712,7 +2091,7 @@ async def websocket_agent_login(websocket: WebSocket, vm_name: str):
         if loc:
             fp = [settings.TART_PATH, "exec", tn, "bash", "-c", port_cmd]
         else:
-            fp = _remote_ssh_cmd(wk, f"{settings.REMOTE_TART_PATH} exec {tn} bash -c \"{port_cmd}\"")
+            fp = _build_tart_ssh_cmd(wk, f"{settings.REMOTE_TART_PATH} exec {tn} bash -c \"{port_cmd}\"")
         p = await asyncio.create_subprocess_exec(
             *fp, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         out, _ = await asyncio.wait_for(p.communicate(), timeout=10)
@@ -1766,7 +2145,7 @@ async def websocket_agent_login(websocket: WebSocket, vm_name: str):
         if is_local:
             fwd = [settings.TART_PATH, "exec", tart_name, "bash", "-c", curl_cmd]
         else:
-            fwd = _remote_ssh_cmd(worker, f"{settings.REMOTE_TART_PATH} exec {tart_name} bash -c \"{curl_cmd}\"")
+            fwd = _build_tart_ssh_cmd(worker, f"{settings.REMOTE_TART_PATH} exec {tart_name} bash -c \"{curl_cmd}\"")
         logger.info("agent-login proxy: forwarding %s to VM", path_query[:60])
         p = await asyncio.create_subprocess_exec(
             *fwd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
@@ -1924,9 +2303,12 @@ async def websocket_agent_login(websocket: WebSocket, vm_name: str):
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    hostname = socket.gethostname().lower()
+    is_dev = not hostname.startswith(("infra-", "claw-", "orchard-"))
     return templates.TemplateResponse("index.html", {
         "request": request,
         "api_token": settings.SECRET_KEY,
+        "dev_mode": is_dev,
     })
 
 

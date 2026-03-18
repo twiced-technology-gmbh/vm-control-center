@@ -38,8 +38,12 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: Optional[str] = None
     GITHUB_TOKEN_FILE: Path = Field(default_factory=lambda: Path.home() / ".vm-control-center" / "github_token")
 
-    # Caddy admin API (on ddmini) for dynamic service URL discovery
+    # Caddy admin API for dynamic service URL discovery
     CADDY_ADMIN_URL: Optional[str] = None
+    # Caddy host for SSH-based Caddyfile edits (auto-detected from CADDY_ADMIN_URL if unset)
+    CADDY_HOST: Optional[str] = None
+    # Path to caddy binary on the Caddy host
+    CADDY_BINARY: str = "caddy"
 
     # Remote VM access (SSH to worker hosts running Tart)
     SSH_KEY: Optional[str] = None
@@ -135,5 +139,15 @@ if not settings.CADDY_ADMIN_URL and settings.ORCHARD_URL:
         _orchard_host = urlparse(settings.ORCHARD_URL).hostname
         if _orchard_host:
             settings.CADDY_ADMIN_URL = f"http://{_orchard_host}:2019"
+    except Exception:
+        pass
+
+# Auto-detect Caddy SSH host from Caddy admin URL
+if not settings.CADDY_HOST and settings.CADDY_ADMIN_URL:
+    try:
+        from urllib.parse import urlparse
+        _caddy_host = urlparse(settings.CADDY_ADMIN_URL).hostname
+        if _caddy_host:
+            settings.CADDY_HOST = _caddy_host
     except Exception:
         pass

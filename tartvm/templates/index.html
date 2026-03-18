@@ -88,10 +88,10 @@
                     <button id="bulk-restart-btn" class="icon-btn icon-btn-blue" data-tooltip="Restart All">
                         <i class="fas fa-redo" style="font-size: 11px;"></i>
                     </button>
-                    <button id="bulk-snapshot-btn" class="icon-btn icon-btn-neutral" data-tooltip="Snapshot All">
+                    <button id="bulk-snapshot-btn" class="icon-btn icon-btn-amber" data-tooltip="Snapshot All">
                         <i class="fas fa-camera" style="font-size: 11px;"></i>
                     </button>
-                    <button id="global-snapshots-btn" class="icon-btn icon-btn-neutral" data-tooltip="Manage Snapshots">
+                    <button id="global-snapshots-btn" class="icon-btn icon-btn-indigo" data-tooltip="Manage Snapshots">
                         <i class="fas fa-layer-group" style="font-size: 11px;"></i>
                     </button>
                 </div>
@@ -143,14 +143,13 @@
                             </th>
                             <th class="col-tsip" style="width: 110px;">Tailscale IP</th>
                             <th>URLs</th>
+                            <th style="width: 70px;">Mode</th>
                             <th class="col-logins" style="width: 130px;">Logins</th>
                             <th data-sort="cpu" class="th-sortable" style="width: 50px;"><div class="th-content"><span>CPU</span><i class="fas fa-sort th-sort-icon"></i></div></th>
                             <th data-sort="memory" class="th-sortable" style="width: 60px;"><div class="th-content"><span>Memory</span><i class="fas fa-sort th-sort-icon"></i></div></th>
                             <th data-sort="storage" class="th-sortable col-storage" style="width: 60px;"><div class="th-content"><span>Storage</span><i class="fas fa-sort th-sort-icon"></i></div></th>
                             <th class="col-restart" style="width: 70px;">Restart</th>
-                            <th style="width: 120px; text-align: right;">Actions</th>
-                            <th style="width: 100px; text-align: right;">Snapshot</th>
-                            <th class="col-manage" style="width: 70px; text-align: right;">Manage</th>
+                            <th style="width: 80px; text-align: right;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="vms-list"></tbody>
@@ -188,13 +187,54 @@
                     <table class="dark-table">
                         <thead>
                             <tr>
-                                <th style="width: 22%;">Name</th>
-                                <th style="width: 70px;">Source</th>
-                                <th style="width: 70px;">OS</th>
-                                <th style="width: 80px;">Disk</th>
-                                <th style="width: 80px;">Size</th>
+                                <th data-sort="name" class="th-sortable" style="width: 22%;">
+                                    <div class="th-content">
+                                        <span>Name</span>
+                                        <i class="fas fa-sort-up th-sort-icon active"></i>
+                                        <div class="th-filter-wrap" data-filter-group="type">
+                                            <button class="th-filter-btn" onclick="event.stopPropagation()"><i class="fas fa-filter"></i></button>
+                                            <div class="th-filter-menu hidden">
+                                                <button class="th-filter-opt selected" data-value="all"><i class="fas fa-check"></i>All</button>
+                                                <button class="th-filter-opt" data-value="claw"><i class="fas fa-check"></i>claw-*</button>
+                                                <button class="th-filter-opt" data-value="infra"><i class="fas fa-check"></i>infra-*</button>
+                                                <button class="th-filter-opt" data-value="templates"><i class="fas fa-check"></i>templates-*</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th data-sort="source" class="th-sortable" style="width: 70px;">
+                                    <div class="th-content">
+                                        <span>Source</span>
+                                        <i class="fas fa-sort th-sort-icon"></i>
+                                        <div class="th-filter-wrap" data-filter-group="source">
+                                            <button class="th-filter-btn" onclick="event.stopPropagation()"><i class="fas fa-filter"></i></button>
+                                            <div class="th-filter-menu hidden">
+                                                <button class="th-filter-opt selected" data-value="all"><i class="fas fa-check"></i>All</button>
+                                                <button class="th-filter-opt" data-value="local"><i class="fas fa-check"></i>local</button>
+                                                <button class="th-filter-opt" data-value="OCI"><i class="fas fa-check"></i>OCI</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th data-sort="os" class="th-sortable" style="width: 70px;">
+                                    <div class="th-content">
+                                        <span>OS</span>
+                                        <i class="fas fa-sort th-sort-icon"></i>
+                                        <div class="th-filter-wrap" data-filter-group="os">
+                                            <button class="th-filter-btn" onclick="event.stopPropagation()"><i class="fas fa-filter"></i></button>
+                                            <div class="th-filter-menu hidden">
+                                                <button class="th-filter-opt selected" data-value="all"><i class="fas fa-check"></i>All</button>
+                                                <button class="th-filter-opt" data-value="macOS"><i class="fas fa-check"></i>macOS</button>
+                                                <button class="th-filter-opt" data-value="Linux"><i class="fas fa-check"></i>Linux</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th data-sort="disk" class="th-sortable" style="width: 80px;"><div class="th-content"><span>Disk</span><i class="fas fa-sort th-sort-icon"></i></div></th>
+                                <th data-sort="size" class="th-sortable" style="width: 80px;"><div class="th-content"><span>Size</span><i class="fas fa-sort th-sort-icon"></i></div></th>
                                 <th>Used By</th>
-                                <th style="width: 140px;">Last Accessed</th>
+                                <th data-sort="accessed" class="th-sortable" style="width: 140px;"><div class="th-content"><span>Last Accessed</span><i class="fas fa-sort th-sort-icon"></i></div></th>
+                                <th style="width: 80px; text-align: right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="images-list"></tbody>
@@ -262,11 +302,10 @@
                         <div>
                             <label class="label block mb-1">Host</label>
                             <div class="flex gap-2">
-                                <select id="git-profile-host-select" class="select" style="width: 50%;" onchange="if(this.value!=='custom'){document.getElementById('git-profile-host').value=this.value;}document.getElementById('git-profile-host').classList.toggle('hidden',this.value!=='custom');">
-                                    <option value="github.com">github.com</option>
-                                    <option value="gitlab.com">gitlab.com</option>
-                                    <option value="custom">Custom...</option>
-                                </select>
+                                <div id="git-profile-host-select" class="custom-select" style="width: 50%;" data-options='[{"value":"github.com","label":"github.com"},{"value":"gitlab.com","label":"gitlab.com"},{"value":"custom","label":"Custom..."}]' data-value="github.com">
+                                    <div class="custom-select-trigger"><span class="custom-select-label">github.com</span> <i class="fas fa-chevron-down"></i></div>
+                                    <div class="custom-select-menu"></div>
+                                </div>
                                 <input type="text" id="git-profile-host" class="input hidden" placeholder="git.example.com" style="width: 50%;">
                             </div>
                         </div>
@@ -341,7 +380,10 @@
 
                 <div class="mb-4">
                     <label for="create-vm-worker" class="label block mb-1">Target Worker</label>
-                    <select id="create-vm-worker" class="select"></select>
+                    <div id="create-vm-worker" class="custom-select" data-value="">
+                        <div class="custom-select-trigger"><span class="custom-select-label">—</span> <i class="fas fa-chevron-down"></i></div>
+                        <div class="custom-select-menu"></div>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-3 gap-4 mb-4">
@@ -762,6 +804,87 @@
     </div>
 </div>
 
+<!-- Service Config Modal -->
+<div id="service-config-modal" class="fixed z-10 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 modal-backdrop" aria-hidden="true"></div>
+        <div class="relative modal-dialog w-full max-w-md">
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-5">
+                    <div class="flex items-center justify-center w-8 h-8 rounded" style="background: rgba(251,146,60,0.12);">
+                        <i class="fas fa-wrench" style="color: #fb923c; font-size: 13px;"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-emphasis" id="service-config-title">Service Config</h3>
+                </div>
+                <!-- Mode Switch (only visible when config exists) -->
+                <div id="service-config-mode-section" class="hidden" style="margin-bottom: 16px;">
+                    <div class="text-xs font-medium text-emphasis" style="margin-bottom: 8px;">Mode</div>
+                    <div class="flex gap-2">
+                        <button id="service-config-mode-prod" class="mode-badge mode-prod" style="cursor: pointer; border: none; padding: 4px 14px; font-size: 12px;" onclick="switchServiceMode('prod')">
+                            <i class="fas fa-server" style="font-size: 9px;"></i>Production
+                        </button>
+                        <button id="service-config-mode-dev" class="mode-badge mode-dev" style="cursor: pointer; border: none; padding: 4px 14px; font-size: 12px; opacity: 0.4;" onclick="switchServiceMode('dev')">
+                            <i class="fas fa-code" style="font-size: 9px;"></i>Development
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="label block mb-1">Caddy Domain</label>
+                        <input type="text" id="service-config-caddy-domain" class="input" placeholder="e.g. cockpit.infra.twiced.de">
+                    </div>
+                    <div>
+                        <label class="label block mb-1">Prod Upstream</label>
+                        <input type="text" id="service-config-prod-upstream" class="input" placeholder="e.g. 100.x.x.x:3200">
+                        <p class="mt-1 text-xs text-secondary">VM Tailscale IP + port for production</p>
+                    </div>
+                    <div>
+                        <label class="label block mb-1">Dev Host</label>
+                        <div id="service-config-dev-host" class="custom-select" data-value="">
+                            <div class="custom-select-trigger"><span class="custom-select-label">— none —</span> <i class="fas fa-chevron-down"></i></div>
+                            <div class="custom-select-menu"></div>
+                        </div>
+                        <p class="mt-1 text-xs text-secondary">machine running the local dev server</p>
+                    </div>
+                    <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px;">
+                        <div class="text-xs font-medium text-emphasis" style="margin-bottom: 8px;">VM Service</div>
+                    </div>
+                    <div>
+                        <label class="label block mb-1">Systemd Unit</label>
+                        <input type="text" id="service-config-unit" class="input" placeholder="e.g. cockpit">
+                    </div>
+                    <div>
+                        <label class="label block mb-1">App Directory</label>
+                        <input type="text" id="service-config-dir" class="input" placeholder="e.g. /home/admin/cockpit">
+                    </div>
+                    <div>
+                        <label class="label block mb-1">Dev Command</label>
+                        <input type="text" id="service-config-dev-cmd" class="input" placeholder="make dev">
+                    </div>
+                    <div>
+                        <label class="label block mb-1">Dev Process Pattern</label>
+                        <input type="text" id="service-config-pattern" class="input" placeholder="tsx src/index">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer px-6 py-3 flex justify-between gap-2">
+                <button type="button" id="service-config-delete-btn" class="icon-btn icon-btn-red" data-tooltip="Remove Config">
+                    <i class="fas fa-trash" style="font-size: 11px;"></i>
+                </button>
+                <div class="flex gap-2">
+                    <button type="button" id="service-config-cancel-btn" class="icon-btn icon-btn-neutral" data-tooltip="Cancel">
+                        <i class="fas fa-times" style="font-size: 11px;"></i>
+                    </button>
+                    <button type="button" id="service-config-save-btn" class="icon-btn icon-btn-green" data-tooltip="Save">
+                        <i class="fas fa-check" style="font-size: 11px;"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -777,16 +900,129 @@
     let tailscaleLoaded = false;
     let loginData = {};
     let loginCheckInProgress = false;
+    let modeMap = {};
+    let modesLoaded = false;
+    let modesLoading = false;
     let hostsData = [];
     let vmFilters = { type: 'all', os: 'all', worker: 'all' };
     let vmSort = { column: 'name', direction: 'asc' };
+    let imageFilters = { type: 'all', source: 'all', os: 'all' };
+    let imageSort = { column: 'name', direction: 'asc' };
+
+    const UI_STATE_KEY = 'vmcc-ui-state';
+
+    function saveUIState() {
+        localStorage.setItem(UI_STATE_KEY, JSON.stringify({
+            activeTab, vmFilters, vmSort, imageFilters, imageSort
+        }));
+    }
+
+    function restoreUIState() {
+        let saved;
+        try { saved = JSON.parse(localStorage.getItem(UI_STATE_KEY)); } catch (e) {}
+        if (!saved) return;
+
+        if (saved.vmSort) vmSort = saved.vmSort;
+        if (saved.imageSort) imageSort = saved.imageSort;
+        if (saved.vmFilters) vmFilters = saved.vmFilters;
+        if (saved.imageFilters) imageFilters = saved.imageFilters;
+
+        // Restore active tab
+        const tab = saved.activeTab || 'vms';
+        activeTab = tab;
+        document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+        document.getElementById('tab-vms').classList.toggle('hidden', tab !== 'vms');
+        document.getElementById('tab-images').classList.toggle('hidden', tab !== 'images');
+
+        // Restore filter button UI
+        ['vms-table', 'images-table'].forEach(tableId => {
+            const filters = tableId === 'vms-table' ? vmFilters : imageFilters;
+            document.querySelectorAll(`#${tableId} .th-filter-wrap`).forEach(wrap => {
+                const group = wrap.dataset.filterGroup;
+                const val = filters[group];
+                if (!val) return;
+                wrap.querySelectorAll('.th-filter-opt').forEach(o => o.classList.toggle('selected', o.dataset.value === val));
+                wrap.querySelector('.th-filter-btn').classList.toggle('is-filtered', val !== 'all');
+            });
+        });
+    }
+
+    // Custom select dropdown utility
+    const customSelect = {
+        init(el) {
+            const trigger = el.querySelector('.custom-select-trigger');
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.custom-select.open').forEach(s => { if (s !== el) s.classList.remove('open'); });
+                el.classList.toggle('open');
+            });
+            const opts = el.dataset.options ? JSON.parse(el.dataset.options) : [];
+            if (opts.length) customSelect.setOptions(el, opts, el.dataset.value || '');
+        },
+        setOptions(el, options, selectedValue) {
+            const menu = el.querySelector('.custom-select-menu');
+            menu.innerHTML = '';
+            el.dataset.value = selectedValue || '';
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'custom-select-option' + (opt.value === selectedValue ? ' selected' : '');
+                btn.dataset.value = opt.value;
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-check';
+                btn.appendChild(icon);
+                btn.appendChild(document.createTextNode(' ' + opt.label));
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    customSelect.setValue(el, opt.value, opt.label);
+                    el.classList.remove('open');
+                    el.dispatchEvent(new Event('change'));
+                });
+                menu.appendChild(btn);
+            });
+            const sel = options.find(o => o.value === selectedValue) || options[0];
+            if (sel) el.querySelector('.custom-select-label').textContent = sel.label;
+        },
+        getValue(el) { return el.dataset.value || ''; },
+        setValue(el, value, label) {
+            el.dataset.value = value;
+            const opts = el.querySelectorAll('.custom-select-option');
+            opts.forEach(o => o.classList.toggle('selected', o.dataset.value === value));
+            if (label) {
+                el.querySelector('.custom-select-label').textContent = label;
+            } else {
+                const sel = [...opts].find(o => o.dataset.value === value);
+                if (sel) el.querySelector('.custom-select-label').textContent = sel.textContent.trim();
+            }
+        }
+    };
+
+    // Close custom selects on outside click
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.custom-select.open').forEach(s => s.classList.remove('open'));
+    });
+
+    // Init static custom selects
+    document.querySelectorAll('.custom-select[data-options]').forEach(el => customSelect.init(el));
 
     function updateSortIcons() {
-        document.querySelectorAll('.th-sortable').forEach(th => {
+        document.querySelectorAll('#vms-table .th-sortable').forEach(th => {
             const icon = th.querySelector('.th-sort-icon');
             if (!icon) return;
             if (th.dataset.sort === vmSort.column) {
                 icon.className = `fas ${vmSort.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down'} th-sort-icon active`;
+            } else {
+                icon.className = 'fas fa-sort th-sort-icon';
+            }
+        });
+    }
+
+    function updateImageSortIcons() {
+        document.querySelectorAll('#images-table .th-sortable').forEach(th => {
+            const icon = th.querySelector('.th-sort-icon');
+            if (!icon) return;
+            if (th.dataset.sort === imageSort.column) {
+                icon.className = `fas ${imageSort.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down'} th-sort-icon active`;
             } else {
                 icon.className = 'fas fa-sort th-sort-icon';
             }
@@ -820,6 +1056,22 @@
                 default: return 0;
             }
             return mult * va.localeCompare(vb);
+        });
+    }
+
+    function sortImages(images) {
+        const { column, direction } = imageSort;
+        const mult = direction === 'asc' ? 1 : -1;
+        return [...images].sort((a, b) => {
+            switch (column) {
+                case 'name': return mult * (a.name || '').localeCompare(b.name || '');
+                case 'source': return mult * (a.source || '').localeCompare(b.source || '');
+                case 'os': return mult * (a.os || '').localeCompare(b.os || '');
+                case 'disk': return mult * ((a.disk_size || 0) - (b.disk_size || 0));
+                case 'size': return mult * ((a.size || 0) - (b.size || 0));
+                case 'accessed': return mult * (a.last_accessed || '').localeCompare(b.last_accessed || '');
+                default: return 0;
+            }
         });
     }
 
@@ -867,6 +1119,7 @@
     const createVmImageInput = document.getElementById('create-vm-image');
     const createVmNameInput = document.getElementById('create-vm-name');
     const createVmWorkerSelect = document.getElementById('create-vm-worker');
+    customSelect.init(createVmWorkerSelect);
     const createVmCpuInput = document.getElementById('create-vm-cpu');
     const createVmMemoryInput = document.getElementById('create-vm-memory');
     const createVmDiskInput = document.getElementById('create-vm-disk');
@@ -914,6 +1167,10 @@
 
     // Event listeners
     document.addEventListener('DOMContentLoaded', () => {
+        restoreUIState();
+        updateSortIcons();
+        updateImageSortIcons();
+
         // Tab switching
         document.querySelectorAll('.tab[data-tab]').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -922,6 +1179,7 @@
                 tab.classList.add('active');
                 document.getElementById('tab-vms').classList.toggle('hidden', activeTab !== 'vms');
                 document.getElementById('tab-images').classList.toggle('hidden', activeTab !== 'images');
+                saveUIState();
             });
         });
 
@@ -946,8 +1204,8 @@
 
         document.getElementById('refresh-btn').addEventListener('click', loadVMs);
 
-        // Column header sorting
-        document.querySelectorAll('.th-sortable').forEach(th => {
+        // Column header sorting — VMs
+        document.querySelectorAll('#vms-table .th-sortable').forEach(th => {
             th.addEventListener('click', () => {
                 const col = th.dataset.sort;
                 if (vmSort.column === col) {
@@ -958,11 +1216,28 @@
                 }
                 updateSortIcons();
                 if (lastVMs) renderVMs(lastVMs);
+                saveUIState();
             });
         });
 
-        // Column header filter dropdowns
-        document.querySelectorAll('.th-filter-btn').forEach(btn => {
+        // Column header sorting — Images
+        document.querySelectorAll('#images-table .th-sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const col = th.dataset.sort;
+                if (imageSort.column === col) {
+                    imageSort.direction = imageSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    imageSort.column = col;
+                    imageSort.direction = 'asc';
+                }
+                updateImageSortIcons();
+                if (lastImages) renderImages(lastImages);
+                saveUIState();
+            });
+        });
+
+        // Column header filter dropdowns — VMs
+        document.querySelectorAll('#vms-table .th-filter-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const wrap = btn.closest('.th-filter-wrap');
@@ -972,10 +1247,7 @@
                 if (!wasOpen) menu.classList.remove('hidden');
             });
         });
-        document.addEventListener('click', () => {
-            document.querySelectorAll('.th-filter-menu').forEach(m => m.classList.add('hidden'));
-        });
-        document.querySelectorAll('.th-filter-menu').forEach(menu => {
+        document.querySelectorAll('#vms-table .th-filter-menu').forEach(menu => {
             menu.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const opt = e.target.closest('.th-filter-opt');
@@ -988,7 +1260,68 @@
                 menu.classList.add('hidden');
                 wrap.querySelector('.th-filter-btn').classList.toggle('is-filtered', opt.dataset.value !== 'all');
                 if (lastVMs) renderVMs(lastVMs);
+                saveUIState();
             });
+        });
+
+        // Column header filter dropdowns — Images
+        document.querySelectorAll('#images-table .th-filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const wrap = btn.closest('.th-filter-wrap');
+                const menu = wrap.querySelector('.th-filter-menu');
+                const wasOpen = !menu.classList.contains('hidden');
+                document.querySelectorAll('.th-filter-menu').forEach(m => m.classList.add('hidden'));
+                if (!wasOpen) menu.classList.remove('hidden');
+            });
+        });
+        document.querySelectorAll('#images-table .th-filter-menu').forEach(menu => {
+            menu.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const opt = e.target.closest('.th-filter-opt');
+                if (!opt) return;
+                const wrap = menu.closest('.th-filter-wrap');
+                const group = wrap.dataset.filterGroup;
+                imageFilters[group] = opt.dataset.value;
+                menu.querySelectorAll('.th-filter-opt').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                menu.classList.add('hidden');
+                wrap.querySelector('.th-filter-btn').classList.toggle('is-filtered', opt.dataset.value !== 'all');
+                if (lastImages) renderImages(lastImages);
+                saveUIState();
+            });
+        });
+
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.th-filter-menu').forEach(m => m.classList.add('hidden'));
+            document.querySelectorAll('.vm-overflow-menu.open').forEach(m => m.classList.remove('open'));
+        });
+        window.addEventListener('scroll', () => {
+            document.querySelectorAll('.vm-overflow-menu.open').forEach(m => m.classList.remove('open'));
+        }, true);
+
+        // Overflow menu toggle — position: fixed so it escapes overflow clipping
+        document.body.addEventListener('click', (e) => {
+            const overflowBtn = e.target.closest('.vm-overflow-btn');
+            if (overflowBtn) {
+                e.stopPropagation();
+                const menu = overflowBtn.nextElementSibling;
+                const wasOpen = menu.classList.contains('open');
+                document.querySelectorAll('.vm-overflow-menu.open').forEach(m => m.classList.remove('open'));
+                if (!wasOpen) {
+                    const rect = overflowBtn.getBoundingClientRect();
+                    menu.classList.add('open');
+                    const menuRect = menu.getBoundingClientRect();
+                    const spaceBelow = window.innerHeight - rect.bottom;
+                    if (spaceBelow < menuRect.height + 8) {
+                        menu.style.top = (rect.top - menuRect.height - 4) + 'px';
+                    } else {
+                        menu.style.top = (rect.bottom + 4) + 'px';
+                    }
+                    menu.style.left = (rect.right - menuRect.width) + 'px';
+                }
+                return;
+            }
         });
 
         document.body.addEventListener('click', (e) => {
@@ -1001,14 +1334,17 @@
 
             const vmName = vmElement.dataset.vm;
             if (vmName && action) {
-                // Show spinner on the button for start/stop/restart
+                // Show spinner on the overflow button for start/stop/restart/snapshot
                 if (['start', 'stop', 'restart', 'snapshot'].includes(action)) {
-                    const icon = button.querySelector('i');
-                    if (icon) {
-                        icon.className = 'fas fa-spinner fa-spin';
-                        icon.style.fontSize = '11px';
+                    const overflowBtn = vmElement.querySelector('.vm-overflow-btn');
+                    if (overflowBtn) {
+                        const icon = overflowBtn.querySelector('i');
+                        if (icon) {
+                            icon.className = 'fas fa-spinner fa-spin';
+                            icon.style.fontSize = '11px';
+                        }
+                        overflowBtn.disabled = true;
                     }
-                    button.disabled = true;
                 }
                 handleVmAction(vmName, action);
             }
@@ -1065,6 +1401,8 @@
             if (taskSocket) { taskSocket.close(); taskSocket = null; }
             loadVMsCached();
             refreshActiveTasks();
+            modesLoaded = false;
+            loadModes();
         });
 
         window.addEventListener('click', (e) => {
@@ -1075,6 +1413,7 @@
                     if (modal === taskLogsModal && taskSocket) {
                         taskSocket.close(); taskSocket = null;
                         loadVMsCached(); refreshActiveTasks();
+                        modesLoaded = false; loadModes();
                     }
                     if (modal === agentLoginModal) closeAgentLogin();
                 }
@@ -1111,6 +1450,45 @@
         return icons.length > 0
             ? '<div class="login-icons">' + icons.join('') + '</div>'
             : '<span class="text-secondary text-xs">—</span>';
+    }
+
+    function renderModeCell(vmName) {
+        if (!modesLoaded) {
+            return '<div class="spinner" style="width: 14px; height: 14px; border-width: 2px;"></div>';
+        }
+        const entry = modeMap[vmName];
+        if (entry && entry.mode === 'dev') {
+            return '<span class="mode-badge mode-dev"><i class="fas fa-code" style="font-size: 7px;"></i>Development</span>';
+        }
+        return '<span class="mode-badge mode-prod"><i class="fas fa-server" style="font-size: 7px;"></i>Production</span>';
+    }
+
+    async function loadModes() {
+        if (modesLoading) return;
+        modesLoading = true;
+        try {
+            const vms = lastVMs || [];
+            const results = await Promise.all(
+                vms.map(async vm => {
+                    try {
+                        const enc = encodeURIComponent(vm.name);
+                        const data = await api.get(`/api/vms/${enc}/service-mode`);
+                        return [vm.name, data];
+                    } catch (e) {
+                        return [vm.name, null];
+                    }
+                })
+            );
+            for (const [name, data] of results) {
+                modeMap[name] = data;
+            }
+        } catch (e) {
+            console.warn('Failed to load modes:', e);
+        } finally {
+            modesLoaded = true;
+            modesLoading = false;
+            if (lastVMs) renderVMs(lastVMs);
+        }
     }
 
     async function loadCachedLogins() {
@@ -1181,12 +1559,11 @@
         }
 
         panel.classList.remove('hidden');
-        const hostColors = { ddstudio: '#a78bfa', ddmini: '#38bdf8' };
         list.innerHTML = hosts.map(h => {
             const memGb = h.memory_mb ? Math.round(h.memory_mb / 1024) : '?';
             const isOnline = h.last_seen && (Date.now() - new Date(h.last_seen).getTime()) < 60000;
             const ipDisplay = h.ip ? ` <span class="font-mono text-secondary">(${escapeHtml(h.ip)})</span>` : '';
-            const hColor = hostColors[h.name] || '#94a3b8';
+            const hColor = _hostColor(h.name);
 
             return `
                 <div class="flex items-center justify-between host-row" style="padding: 6px 0;">
@@ -1219,6 +1596,7 @@
                 if (data.vms) {
                     lastVMs = data.vms;
                     renderVMs(data.vms);
+                    if (!modesLoaded && !modesLoading) loadModes();
                 }
                 if (data.hosts) {
                     renderHosts(data.hosts);
@@ -1425,6 +1803,8 @@
             if (vmFilters.worker !== 'all' && vm.worker !== vmFilters.worker) return false;
             return true;
         });
+        const allRunning = filtered.length > 0 && filtered.every(vm => vm.status === 'running');
+        bulkStartBtn.disabled = allRunning;
         const sorted = sortVMs(filtered);
         sorted.forEach(vm => {
             const row = document.createElement('tr');
@@ -1440,21 +1820,30 @@
             let urlsHtml;
             if (!servicesLoaded) {
                 urlsHtml = '<div class="spinner" style="width: 14px; height: 14px; border-width: 2px;"></div>';
-            } else if (services.length > 0) {
-                urlsHtml = `<span class="td-value">${services.map(s => `<a class="accent-link text-xs" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.url)}</a>`).join('<br>')}</span>`;
             } else {
-                urlsHtml = '<span class="text-secondary text-xs">—</span>';
+                const links = services.map(s => `<a class="accent-link text-xs" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.url)}</a>`);
+                const modeEntry = modesLoaded ? modeMap[vm.name] : null;
+                if (modeEntry?.mode === 'dev') {
+                    if (modeEntry?.caddy_url) {
+                        links.push(`<a class="accent-link text-xs" href="${escapeHtml(modeEntry.caddy_url)}" target="_blank" rel="noopener">${escapeHtml(modeEntry.caddy_url)}</a>`);
+                    }
+                    if (modeEntry?.dev_url) {
+                        links.push(`<a class="accent-link text-xs" href="${escapeHtml(modeEntry.dev_url)}" target="_blank" rel="noopener">${escapeHtml(modeEntry.dev_url)}</a>`);
+                    }
+                }
+                urlsHtml = links.length > 0
+                    ? `<span class="td-value">${links.join('<br>')}</span>`
+                    : '<span class="text-secondary text-xs">—</span>';
             }
 
             const memDisplay = vm.memory ? (vm.memory >= 1024 ? `${Math.round(vm.memory / 1024)}G` : `${vm.memory}M`) : '<span class="text-secondary">—</span>';
 
             // Worker with IP + color
-            const workerColors = { ddstudio: '#a78bfa', ddmini: '#38bdf8' };
             let workerHtml = '<span class="text-secondary">—</span>';
             if (vm.worker) {
                 const workerHost = hostsData.find(h => h.name === vm.worker);
                 const workerIp = workerHost?.ip;
-                const wColor = workerColors[vm.worker] || '#94a3b8';
+                const wColor = _hostColor(vm.worker);
                 workerHtml = `<span class="td-value">${`<span style="color: ${wColor};">${escapeHtml(vm.worker)}</span>` + (workerIp ? `<br><span class="text-secondary font-mono">(${escapeHtml(workerIp)})</span>` : '')}</span>`;
             }
 
@@ -1474,48 +1863,56 @@
                 <td data-label="Worker" class="text-xs">${workerHtml}</td>
                 <td data-label="Tailscale IP" class="text-xs">${tsIpHtml}</td>
                 <td data-label="URLs">${urlsHtml}</td>
+                <td data-label="Mode">${renderModeCell(vm.name)}</td>
                 <td data-label="Logins" class="col-logins">${renderLoginIcons(loginData[vm.name])}</td>
                 <td data-label="CPU" class="text-xs">${vm.cpu || '<span class="text-secondary">—</span>'}</td>
                 <td data-label="Memory" class="text-xs">${memDisplay}</td>
                 <td data-label="Storage" class="text-xs">${vm.disk_size ? vm.disk_size + 'G' : '<span class="text-secondary">—</span>'}</td>
                 <td data-label="Restart" class="text-xs">${vm.restart_policy || '<span class="text-secondary">—</span>'}</td>
                 <td data-label="Actions" style="text-align: right;">
-                    <div class="flex gap-1 justify-end">
-                        <button class="icon-btn icon-btn-green" data-tooltip="Start" data-action="start" ${isRunning ? 'disabled' : ''}>
-                            <i class="fas fa-play" style="font-size: 11px;"></i>
-                        </button>
-                        <button class="icon-btn icon-btn-orange" data-tooltip="Stop" data-action="stop" ${!isRunning ? 'disabled' : ''}>
-                            <i class="fas fa-stop" style="font-size: 11px;"></i>
-                        </button>
-                        <button class="icon-btn icon-btn-blue" data-tooltip="Restart" data-action="restart" ${!isRunning ? 'disabled' : ''}>
-                            <i class="fas fa-redo" style="font-size: 11px;"></i>
-                        </button>
-                        <button class="icon-btn icon-btn-red" data-tooltip="Destroy" data-action="destroy">
-                            <i class="fas fa-trash" style="font-size: 11px;"></i>
-                        </button>
-                    </div>
-                </td>
-                <td data-label="Snapshot" style="text-align: right;">
-                    <div class="flex gap-1 justify-end">
-                        <button class="icon-btn icon-btn-neutral" data-tooltip="Create Snapshot" data-action="snapshot" ${!isRunning ? 'disabled' : ''}>
-                            <i class="fas fa-camera" style="font-size: 11px;"></i>
-                        </button>
-                        <button class="icon-btn icon-btn-teal" data-tooltip="Recreate from Snapshot" data-action="recreate">
-                            <i class="fas fa-history" style="font-size: 11px;"></i>
-                        </button>
-                        <button class="icon-btn icon-btn-neutral" data-tooltip="Manage Snapshots" data-action="manage-snapshots">
-                            <i class="fas fa-layer-group" style="font-size: 11px;"></i>
-                        </button>
-                    </div>
-                </td>
-                <td data-label="Manage" style="text-align: right;">
-                    <div class="flex gap-1 justify-end">
-                        <button class="icon-btn icon-btn-neutral" data-tooltip="Git Config" data-action="vm-config" ${!isRunning ? 'disabled' : ''}>
-                            <i class="fas fa-code-branch" style="font-size: 11px;"></i>
-                        </button>
-                        <button class="icon-btn icon-btn-purple" data-tooltip="Agent Login" data-action="agent-login" ${!isRunning ? 'disabled' : ''}>
-                            <i class="fas fa-key" style="font-size: 11px;"></i>
-                        </button>
+                    <div class="flex gap-1 justify-end items-center">
+                        <div class="vm-overflow">
+                            <button class="icon-btn icon-btn-neutral vm-overflow-btn" data-tooltip="More actions">
+                                <i class="fas fa-ellipsis-vertical" style="font-size: 11px;"></i>
+                            </button>
+                            <div class="vm-overflow-menu">
+                                <div class="vm-overflow-section-label">Control</div>
+                                <button class="vm-overflow-item" data-action="start" ${isRunning ? 'disabled' : ''}>
+                                    <i class="fas fa-play" style="color: #4ade80;"></i> Start
+                                </button>
+                                <button class="vm-overflow-item" data-action="stop" ${!isRunning ? 'disabled' : ''}>
+                                    <i class="fas fa-stop" style="color: #fb923c;"></i> Stop
+                                </button>
+                                <button class="vm-overflow-item" data-action="restart" ${!isRunning ? 'disabled' : ''}>
+                                    <i class="fas fa-redo" style="color: #60a5fa;"></i> Restart
+                                </button>
+                                <button class="vm-overflow-item" data-action="destroy">
+                                    <i class="fas fa-trash" style="color: #f87171;"></i> Destroy
+                                </button>
+                                <div class="vm-overflow-divider"></div>
+                                <div class="vm-overflow-section-label">Persist</div>
+                                <button class="vm-overflow-item" data-action="snapshot" ${!isRunning ? 'disabled' : ''}>
+                                    <i class="fas fa-camera" style="color: #fbbf24;"></i> Create Snapshot
+                                </button>
+                                <button class="vm-overflow-item" data-action="recreate">
+                                    <i class="fas fa-history" style="color: #2dd4bf;"></i> Recreate from Snapshot
+                                </button>
+                                <button class="vm-overflow-item" data-action="manage-snapshots">
+                                    <i class="fas fa-layer-group" style="color: #a5b4fc;"></i> Manage Snapshots
+                                </button>
+                                <div class="vm-overflow-divider"></div>
+                                <div class="vm-overflow-section-label">Manage</div>
+                                <button class="vm-overflow-item" data-action="service-config">
+                                    <i class="fas fa-wrench" style="color: #22d3ee;"></i> Service Config
+                                </button>
+                                <button class="vm-overflow-item" data-action="vm-config" ${!isRunning ? 'disabled' : ''}>
+                                    <i class="fas fa-code-branch" style="color: #fbbf24;"></i> Git Config
+                                </button>
+                                <button class="vm-overflow-item" data-action="agent-login" ${!isRunning ? 'disabled' : ''}>
+                                    <i class="fas fa-key" style="color: #c084fc;"></i> Agent Login
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </td>
             `;
@@ -1545,8 +1942,25 @@
         empty.classList.add('hidden');
         section.classList.remove('hidden');
 
+        const filtered = images.filter(img => {
+            if (imageFilters.type !== 'all' && !img.name.startsWith(imageFilters.type + '-')) return false;
+            if (imageFilters.source !== 'all' && img.source !== imageFilters.source) return false;
+            if (imageFilters.os !== 'all' && img.os !== imageFilters.os) return false;
+            return true;
+        });
+        const sorted = sortImages(filtered);
+
         list.innerHTML = '';
-        images.forEach(img => {
+        table.classList.remove('hidden');
+        if (sorted.length === 0) {
+            table.style.minHeight = '160px';
+            tableEmpty.classList.remove('hidden');
+            return;
+        }
+        table.style.minHeight = '';
+        tableEmpty.classList.add('hidden');
+
+        sorted.forEach(img => {
             const row = document.createElement('tr');
 
             const sourceBadge = img.source === 'OCI'
@@ -1580,12 +1994,55 @@
                 <td data-label="Size" class="text-xs">${img.size ? img.size + ' GB' : '<span class="text-secondary">—</span>'}</td>
                 <td data-label="Used By" class="text-xs">${usedByHtml}</td>
                 <td data-label="Accessed" class="text-xs text-secondary">${accessed}</td>
+                <td data-label="Actions" style="text-align: right; white-space: nowrap;">
+                    <div class="flex gap-1 justify-end">
+                        <div class="vm-overflow">
+                            <button class="icon-btn icon-btn-neutral vm-overflow-btn" data-tooltip="More actions">
+                                <i class="fas fa-ellipsis-vertical" style="font-size: 11px;"></i>
+                            </button>
+                            <div class="vm-overflow-menu">
+                                <button class="vm-overflow-item" onclick="renameImage(${JSON.stringify(img.name)})">
+                                    <i class="fas fa-pen" style="color: #60a5fa;"></i> Rename
+                                </button>
+                                <button class="vm-overflow-item" onclick="deleteImage(${JSON.stringify(img.name)})">
+                                    <i class="fas fa-trash" style="color: #f87171;"></i> Destroy
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </td>
             `;
             list.appendChild(row);
         });
 
-        tableEmpty.classList.add('hidden');
-        table.classList.remove('hidden');
+    }
+
+    async function renameImage(name) {
+        const newName = prompt(`Rename image "${name}" to:`, name);
+        if (!newName || newName === name) return;
+        try {
+            await api.post(`/api/images/${encodeURIComponent(name)}/rename`, { new_name: newName });
+            if (lastImages) {
+                const idx = lastImages.findIndex(i => i.name === name);
+                if (idx !== -1) lastImages[idx] = { ...lastImages[idx], name: newName };
+                renderImages(lastImages);
+            }
+        } catch (e) {
+            alert(`Rename failed: ${e.message}`);
+        }
+    }
+
+    async function deleteImage(name) {
+        if (!confirm(`Delete image "${name}"? This cannot be undone.`)) return;
+        try {
+            await api.delete(`/api/images/${encodeURIComponent(name)}`);
+            if (lastImages) {
+                lastImages = lastImages.filter(i => i.name !== name);
+                renderImages(lastImages);
+            }
+        } catch (e) {
+            alert(`Delete failed: ${e.message}`);
+        }
     }
 
     function getStatusBadge(vm) {
@@ -1646,6 +2103,10 @@
             }
             case 'agent-login': {
                 showAgentLoginModal(vmName);
+                break;
+            }
+            case 'service-config': {
+                showServiceConfigModal(vmName);
                 break;
             }
             case 'destroy': {
@@ -1727,23 +2188,18 @@
     }
 
     function populateWorkerSelect() {
-        createVmWorkerSelect.innerHTML = '';
         if (hostsData.length === 0) {
-            createVmWorkerSelect.innerHTML = '<option value="">No workers available</option>';
+            customSelect.setOptions(createVmWorkerSelect, [{ value: '', label: 'No workers available' }], '');
             return;
         }
-        hostsData.forEach(h => {
-            const opt = document.createElement('option');
-            opt.value = h.name;
-            opt.textContent = h.name + (h.ip ? ` (${h.ip})` : '');
-            createVmWorkerSelect.appendChild(opt);
-        });
+        const opts = hostsData.map(h => ({ value: h.name, label: h.name + (h.ip ? ` (${h.ip})` : '') }));
+        customSelect.setOptions(createVmWorkerSelect, opts, opts[0].value);
     }
 
     function handleCreateVm() {
         const vmName = createVmNameInput.value.trim();
         const image = createVmImageInput.value.trim();
-        const worker = createVmWorkerSelect.value;
+        const worker = customSelect.getValue(createVmWorkerSelect);
         const cpu = parseInt(createVmCpuInput.value);
         const memory = parseInt(createVmMemoryInput.value);
         const disk = parseInt(createVmDiskInput.value);
@@ -2133,6 +2589,11 @@ The target machine (${name}) needs:
     // --- Git Profiles (Settings) ---
 
     document.getElementById('git-profile-add-btn').addEventListener('click', () => showGitProfileForm());
+    document.getElementById('git-profile-host-select').addEventListener('change', function() {
+        const v = customSelect.getValue(this);
+        if (v !== 'custom') document.getElementById('git-profile-host').value = v;
+        document.getElementById('git-profile-host').classList.toggle('hidden', v !== 'custom');
+    });
 
     async function loadGitProfiles() {
         const list = document.getElementById('git-profiles-list');
@@ -2178,7 +2639,7 @@ The target machine (${name}) needs:
         const form = document.getElementById('git-profile-form');
         document.getElementById('git-profile-edit-id').value = editId || '';
         document.getElementById('git-profile-label').value = '';
-        document.getElementById('git-profile-host-select').value = 'github.com';
+        customSelect.setValue(document.getElementById('git-profile-host-select'), 'github.com', 'github.com');
         document.getElementById('git-profile-host').value = '';
         document.getElementById('git-profile-host').classList.add('hidden');
         document.getElementById('git-profile-name').value = '';
@@ -2190,13 +2651,13 @@ The target machine (${name}) needs:
             try {
                 const p = await api.get(`/api/git-profiles/${editId}`);
                 document.getElementById('git-profile-label').value = p.label || '';
-                const hostSel = document.getElementById('git-profile-host-select');
+                const hostSelEl = document.getElementById('git-profile-host-select');
                 const hostInput = document.getElementById('git-profile-host');
                 if (['github.com', 'gitlab.com'].includes(p.host)) {
-                    hostSel.value = p.host;
+                    customSelect.setValue(hostSelEl, p.host);
                     hostInput.classList.add('hidden');
                 } else {
-                    hostSel.value = 'custom';
+                    customSelect.setValue(hostSelEl, 'custom');
                     hostInput.value = p.host;
                     hostInput.classList.remove('hidden');
                 }
@@ -2217,8 +2678,8 @@ The target machine (${name}) needs:
 
     window.saveGitProfile = async function() {
         const editId = document.getElementById('git-profile-edit-id').value;
-        const hostSel = document.getElementById('git-profile-host-select').value;
-        const host = hostSel === 'custom' ? document.getElementById('git-profile-host').value.trim() : hostSel;
+        const hostSelVal = customSelect.getValue(document.getElementById('git-profile-host-select'));
+        const host = hostSelVal === 'custom' ? document.getElementById('git-profile-host').value.trim() : hostSelVal;
         const label = document.getElementById('git-profile-label').value.trim();
 
         if (!label || !host) {
@@ -2259,6 +2720,161 @@ The target machine (${name}) needs:
             showToast('Failed to delete profile: ' + e.message, 'error');
         }
     };
+
+    // --- Service Config Modal ---
+
+    let serviceConfigVmName = null;
+    const serviceConfigModal = document.getElementById('service-config-modal');
+    document.getElementById('service-config-cancel-btn').addEventListener('click', () => hideModal(serviceConfigModal));
+    document.getElementById('service-config-save-btn').addEventListener('click', saveServiceConfig);
+    document.getElementById('service-config-delete-btn').addEventListener('click', deleteServiceConfig);
+    customSelect.init(document.getElementById('service-config-dev-host'));
+
+    function populateDevHostSelect(selectedHost) {
+        const sel = document.getElementById('service-config-dev-host');
+        const opts = [{ value: '', label: '— none —' }];
+        for (const [hostname, ip] of Object.entries(tailscalePeers).sort((a, b) => a[0].localeCompare(b[0]))) {
+            opts.push({ value: hostname, label: `${hostname} (${ip})` });
+        }
+        customSelect.setOptions(sel, opts, selectedHost || '');
+    }
+
+    async function showServiceConfigModal(vmName) {
+        serviceConfigVmName = vmName;
+        document.getElementById('service-config-title').textContent = 'Service Config: ' + vmName;
+        document.getElementById('service-config-unit').value = '';
+        document.getElementById('service-config-dir').value = '';
+        document.getElementById('service-config-dev-cmd').value = '';
+        document.getElementById('service-config-pattern').value = '';
+        document.getElementById('service-config-caddy-domain').value = '';
+        document.getElementById('service-config-prod-upstream').value = '';
+        document.getElementById('service-config-mode-section').classList.add('hidden');
+        populateDevHostSelect('');
+
+        let hasConfig = false;
+        try {
+            const enc = encodeURIComponent(vmName);
+            const data = await api.get(`/api/vms/${enc}/service-config`);
+            if (data.service) {
+                hasConfig = true;
+                document.getElementById('service-config-unit').value = data.service.systemd_unit || '';
+                document.getElementById('service-config-dir').value = data.service.app_dir || '';
+                document.getElementById('service-config-dev-cmd').value = data.service.dev_command || '';
+                document.getElementById('service-config-pattern').value = data.service.dev_proc_pattern || '';
+                document.getElementById('service-config-caddy-domain').value = data.service.caddy_domain || '';
+                document.getElementById('service-config-prod-upstream').value = data.service.prod_upstream || '';
+                populateDevHostSelect(data.service.dev_host || '');
+            }
+        } catch (e) {
+            console.warn('Failed to load service config:', e);
+        }
+
+        if (hasConfig) {
+            document.getElementById('service-config-mode-section').classList.remove('hidden');
+            updateServiceModeButtons(modeMap[vmName]?.mode === 'dev' ? 'dev' : 'prod');
+        }
+
+        showModal(serviceConfigModal);
+    }
+
+    function updateServiceModeButtons(activeMode) {
+        const prodBtn = document.getElementById('service-config-mode-prod');
+        const devBtn = document.getElementById('service-config-mode-dev');
+        prodBtn.style.opacity = activeMode === 'prod' ? '1' : '0.4';
+        devBtn.style.opacity = activeMode === 'dev' ? '1' : '0.4';
+    }
+
+    async function switchServiceMode(mode) {
+        const vmName = serviceConfigVmName;
+        try {
+            const enc = encodeURIComponent(vmName);
+            const task = await api.post(`/api/vms/${enc}/service-mode`, { mode });
+            hideModal(serviceConfigModal);
+            showToast(`Switching ${vmName} to ${mode} mode...`, 'info');
+            refreshActiveTasks();
+            _pollTaskThenRefreshModes(task.id);
+        } catch (error) {
+            console.error('Error switching mode:', error);
+            showToast('Failed to switch service mode', 'error');
+        }
+    }
+
+    async function _pollTaskThenRefreshModes(taskId) {
+        for (let i = 0; i < 60; i++) {
+            await new Promise(r => setTimeout(r, 1000));
+            try {
+                const task = await api.get(`/api/tasks/${taskId}`);
+                if (task.status === 'completed' || task.status === 'failed') {
+                    modesLoaded = false;
+                    loadModes();
+                    loadServices();
+                    refreshActiveTasks();
+                    return;
+                }
+            } catch (e) {
+                break;
+            }
+        }
+    }
+
+    async function saveServiceConfig() {
+        const vmName = serviceConfigVmName;
+        const unit = document.getElementById('service-config-unit').value.trim();
+        const dir = document.getElementById('service-config-dir').value.trim();
+        const devCmd = document.getElementById('service-config-dev-cmd').value.trim();
+        const pattern = document.getElementById('service-config-pattern').value.trim();
+        const caddyDomain = document.getElementById('service-config-caddy-domain').value.trim();
+        const prodUpstream = document.getElementById('service-config-prod-upstream').value.trim();
+        const devHost = customSelect.getValue(document.getElementById('service-config-dev-host'));
+
+        if (!unit || !dir) {
+            showToast('Systemd unit and app directory are required', 'error');
+            return;
+        }
+
+        try {
+            const enc = encodeURIComponent(vmName);
+            await api.put(`/api/vms/${enc}/service-config`, {
+                systemd_unit: unit,
+                app_dir: dir,
+                dev_command: devCmd || 'make dev',
+                dev_proc_pattern: pattern || 'make dev',
+                caddy_domain: caddyDomain || undefined,
+                prod_upstream: prodUpstream || undefined,
+                dev_host: devHost || undefined,
+            });
+            showToast('Service config saved', 'success');
+            // Show mode section and reload mode
+            document.getElementById('service-config-mode-section').classList.remove('hidden');
+            try {
+                const data = await api.get(`/api/vms/${enc}/service-mode`);
+                modeMap[vmName] = data;
+                updateServiceModeButtons(data.mode === 'dev' ? 'dev' : 'prod');
+            } catch (e) {
+                modeMap[vmName] = null;
+                updateServiceModeButtons('prod');
+            }
+            if (lastVMs) renderVMs(lastVMs);
+        } catch (e) {
+            console.error('Failed to save service config:', e);
+            showToast('Failed to save service config', 'error');
+        }
+    }
+
+    async function deleteServiceConfig() {
+        const vmName = serviceConfigVmName;
+        try {
+            const enc = encodeURIComponent(vmName);
+            await api.delete(`/api/vms/${enc}/service-config`);
+            hideModal(serviceConfigModal);
+            showToast('Service config removed', 'success');
+            modeMap[vmName] = null;
+            if (lastVMs) renderVMs(lastVMs);
+        } catch (e) {
+            console.error('Failed to delete service config:', e);
+            showToast('Failed to remove service config', 'error');
+        }
+    }
 
     // --- VM Config Modal ---
 
@@ -2863,6 +3479,12 @@ The target machine (${name}) needs:
             };
             es.onerror = () => es.close();
         } catch (e) {}
+    }
+
+    function _hostColor(name) {
+        let h = 0;
+        for (let i = 0; i < name.length; i++) h = Math.imul(31, h) + name.charCodeAt(i) | 0;
+        return `hsl(${(h >>> 0) % 360}, 65%, 65%)`;
     }
 
     function escapeHtml(unsafe) {
