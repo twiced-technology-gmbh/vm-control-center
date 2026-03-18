@@ -62,25 +62,20 @@ class ApiClient {
             config.body = JSON.stringify(data);
         }
 
-        try {
-            const response = await fetch(url, config);
-            
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                throw new Error(error.detail || 'An error occurred');
-            }
+        const response = await fetch(url, config);
 
-            // Handle empty responses
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                return await response.json();
-            }
-            
-            return await response.text();
-        } catch (error) {
-            console.error('API request failed:', error);
-            throw error;
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.detail || 'An error occurred');
         }
+
+        // Handle empty responses
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return await response.json();
+        }
+
+        return await response.text();
     }
 }
 

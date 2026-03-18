@@ -150,10 +150,14 @@ class TaskManager:
                 self.inventory_last_refresh = time.time()
             await self._refresh_images()
             # Populate disk_size from source Tart images (Orchard doesn't provide it)
+            # Try image name first, then VM name (handles snapshot-based recreation and renames)
             image_disk: Dict[str, int] = {img.name: img.disk_size for img in self._images if img.disk_size}
             for vm in self.inventory.values():
-                if not vm.disk_size and vm.image and vm.image in image_disk:
-                    vm.disk_size = image_disk[vm.image]
+                if not vm.disk_size:
+                    if vm.image and vm.image in image_disk:
+                        vm.disk_size = image_disk[vm.image]
+                    elif vm.name in image_disk:
+                        vm.disk_size = image_disk[vm.name]
             await self._notify_inventory_subscribers()
             return vms
 
@@ -184,7 +188,7 @@ class TaskManager:
                 pass
 
     def _detect_os(self, image: str) -> str:
-        """Detect OS from Orchard image name. Falls back to tart get for local images."""
+        """Detect OS from image name keywords, or tart get for local images."""
         image_lower = image.lower()
         if "macos" in image_lower or "darwin" in image_lower:
             return "macOS"
@@ -192,7 +196,6 @@ class TaskManager:
             return "Linux"
         if not image:
             return "Linux"
-        # Local tart image — query tart get (cached)
         if image in self._os_cache:
             return self._os_cache[image]
         try:
@@ -203,37 +206,73 @@ class TaskManager:
             if result.returncode == 0:
                 data = json.loads(result.stdout)
                 tart_os = data.get("OS", "").lower()
-                if tart_os == "darwin":
-                    self._os_cache[image] = "macOS"
-                else:
-                    self._os_cache[image] = "Linux"
-            else:
-                # VM not on local tart (e.g. remote worker) — default to Linux
-                self._os_cache[image] = "Linux"
+                self._os_cache[image] = "macOS" if tart_os == "darwin" else "Linux"
+                return self._os_cache[image]
         except Exception:
-            self._os_cache[image] = "Linux"
+            pass
+        self._os_cache[image] = "Linux"
         return self._os_cache[image]
+
+    async def _detect_vm_os(self, vm_name: str) -> str:
+        """Detect OS by running uname on the actual VM via Orchard SSH."""
+        if vm_name in self._os_cache:
+            return self._os_cache[vm_name]
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "orchard", "ssh", "vm", vm_name, "uname -s",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
+            if proc.returncode == 0:
+                uname = stdout.decode().strip().lower()
+                self._os_cache[vm_name] = "macOS" if uname == "darwin" else "Linux"
+                return self._os_cache[vm_name]
+        except Exception:
+            pass
+        return "Linux"
 
     async def _inventory_from_orchard(self, task_id: Optional[str] = None) -> List[VMModel]:
         status_code, body = await self._orchard_request("GET", "/v1/vms")
         if status_code != 200:
             raise RuntimeError(f"Orchard /v1/vms returned {status_code}: {body}")
 
-        vms: List[VMModel] = []
+        status_map = {
+            "running": VMStatus.RUNNING,
+            "stopped": VMStatus.STOPPED,
+            "creating": VMStatus.CREATING,
+            "failed": VMStatus.FAILED,
+        }
+
+        # Parse VM data
+        parsed = []
         for vm_data in body:
             status_str = (vm_data.get("status") or vm_data.get("Status") or "unknown").lower()
-            status_map = {
-                "running": VMStatus.RUNNING,
-                "stopped": VMStatus.STOPPED,
-                "creating": VMStatus.CREATING,
-                "failed": VMStatus.FAILED,
-            }
+            parsed.append((vm_data, status_map.get(status_str, VMStatus.UNKNOWN)))
+
+        # Detect OS for running VMs concurrently via orchard ssh
+        running_vms = [
+            (i, vm_data.get("name") or vm_data.get("Name", ""))
+            for i, (vm_data, status) in enumerate(parsed)
+            if status == VMStatus.RUNNING
+        ]
+        if running_vms:
+            os_results = await asyncio.gather(
+                *(self._detect_vm_os(name) for _, name in running_vms)
+            )
+            os_by_index = dict(zip([i for i, _ in running_vms], os_results))
+        else:
+            os_by_index = {}
+
+        vms: List[VMModel] = []
+        for i, (vm_data, status) in enumerate(parsed):
             image = vm_data.get("image") or vm_data.get("Image") or ""
-            os_type = self._detect_os(image)
+            vm_name = vm_data.get("name") or vm_data.get("Name", "")
+            os_type = os_by_index.get(i) or self._detect_os(image)
 
             vms.append(VMModel(
-                name=vm_data.get("name") or vm_data.get("Name", ""),
-                status=status_map.get(status_str, VMStatus.UNKNOWN),
+                name=vm_name,
+                status=status,
                 os=os_type,
                 worker=vm_data.get("worker") or vm_data.get("assignedWorker") or vm_data.get("Worker"),
                 image=image or None,

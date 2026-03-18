@@ -208,6 +208,104 @@ body {
   border-color: rgba(20, 184, 166, 0.5);
 }
 
+.icon-btn-amber {
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+.icon-btn-amber:hover:not(:disabled) {
+  background-color: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.icon-btn-indigo {
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.3);
+}
+.icon-btn-indigo:hover:not(:disabled) {
+  background-color: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.icon-btn-cyan {
+  color: #22d3ee;
+  border-color: rgba(6, 182, 212, 0.3);
+}
+.icon-btn-cyan:hover:not(:disabled) {
+  background-color: rgba(6, 182, 212, 0.15);
+  border-color: rgba(6, 182, 212, 0.5);
+}
+
+/* VM row overflow menu */
+.vm-overflow {
+  position: relative;
+}
+
+.vm-overflow-menu {
+  display: none;
+  position: fixed;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 190px;
+  z-index: 9999;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.vm-overflow-menu.open {
+  display: block;
+}
+
+.vm-overflow-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.vm-overflow-item:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.vm-overflow-item:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.vm-overflow-item i {
+  width: 14px;
+  text-align: center;
+  font-size: 11px;
+}
+
+.vm-overflow-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.vm-overflow-section-label {
+  padding: 4px 12px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: left;
+}
+
 /* Snapshot selection items */
 .snapshot-item {
   display: flex;
@@ -274,7 +372,16 @@ body {
   color: var(--text-secondary);
 }
 
-.select {
+/* Custom select dropdown (replaces native <select>) */
+.custom-select {
+  position: relative;
+  width: 100%;
+}
+
+.custom-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -284,22 +391,98 @@ body {
   padding: 6px 10px;
   transition: border-color 0.15s;
   width: 100%;
+  cursor: pointer;
+  user-select: none;
 }
 
-.select:focus {
-  outline: none;
+.custom-select-trigger:hover {
+  border-color: #555;
+}
+
+.custom-select.open .custom-select-trigger {
   border-color: #3b82f6;
 }
 
-.select option,
-select option {
-  background-color: rgba(0, 0, 0, 0.9);
-  color: var(--text-primary);
+.custom-select-trigger .fa-chevron-down {
+  font-size: 8px;
+  color: var(--text-secondary);
+  transition: transform 0.15s;
 }
 
-select {
-  background-color: var(--surface);
+.custom-select.open .custom-select-trigger .fa-chevron-down {
+  transform: rotate(180deg);
+}
+
+.custom-select-menu {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 60;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.custom-select.open .custom-select-menu {
+  display: block;
+}
+
+.custom-select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-primary);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.custom-select-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.custom-select-option .fa-check {
+  font-size: 9px;
+  color: #4ade80;
+  opacity: 0;
+  width: 10px;
+}
+
+.custom-select-option.selected .fa-check {
+  opacity: 1;
+}
+
+.custom-select-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-select-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-select-menu::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.custom-select-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Modal styles */
@@ -555,6 +738,27 @@ select {
   color: #86efac;
 }
 
+/* Mode labels */
+.mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.mode-prod {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+}
+
+.mode-dev {
+  background: rgba(251, 146, 60, 0.15);
+  color: #fb923c;
+}
+
 /* Badge (count indicators) */
 .badge {
   display: inline-flex;
@@ -698,8 +902,7 @@ input[type="checkbox"] {
 
 /* Focus styles */
 button:focus-visible,
-input:focus-visible,
-select:focus-visible {
+input:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
@@ -864,7 +1067,11 @@ code {
 }
 
 /* Responsive: intermediate breakpoints — hide less critical VM columns */
-@media (max-width: 1400px) and (min-width: 769px) {
+/* Tier 1 (≤1536px): hide Logins, Restart, Storage                        */
+/* Tier 2 (≤1280px): also hide Tailscale IP                               */
+/* Tier 3 (≤1024px): also hide Worker                                      */
+/* ≤768px: card layout (all columns visible as rows — see below)          */
+@media (max-width: 1536px) and (min-width: 769px) {
   .col-logins, td[data-label="Logins"],
   .col-restart, td[data-label="Restart"],
   .col-storage, td[data-label="Storage"] {
@@ -872,9 +1079,8 @@ code {
   }
 }
 
-@media (max-width: 1200px) and (min-width: 769px) {
-  .col-tsip, td[data-label="Tailscale IP"],
-  .col-manage, td[data-label="Manage"] {
+@media (max-width: 1280px) and (min-width: 769px) {
+  .col-tsip, td[data-label="Tailscale IP"] {
     display: none;
   }
 }

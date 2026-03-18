@@ -8,18 +8,21 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <link href="/static/css/styles.css?v=14" rel="stylesheet">
+    <link href="/static/css/styles.css?v=16" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
     <nav style="background-color: var(--surface); border-bottom: 1px solid var(--border);">
         <div class="container-main px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-12">
+            <div class="relative flex items-center h-12">
                 <div class="flex items-center">
-                    <div class="flex-shrink-0 flex items-center">
-                        <span class="text-sm font-semibold text-emphasis">VM Control Center</span>
-                    </div>
+                    <span class="text-sm font-semibold text-emphasis">VM Control Center</span>
                 </div>
+                {% if dev_mode %}
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span class="mode-badge mode-dev"><i class="fas fa-code" style="font-size: 7px;"></i>Development</span>
+                </div>
+                {% endif %}
             </div>
         </div>
     </nav>

@@ -1,4 +1,4 @@
-.PHONY: install dev test clean
+.PHONY: install dev prod test clean
 
 install:
 	python3 -m venv venv
@@ -8,7 +8,11 @@ install:
 
 dev:
 	. venv/bin/activate && \
-	uvicorn tartvm.main:app --reload --host 127.0.0.1 --port 8000
+	VMCC_DEBUG=true uvicorn tartvm.main:app --reload --host 127.0.0.1 --port 8000
+
+prod:
+	. venv/bin/activate && \
+	uvicorn tartvm.main:app --host 0.0.0.0 --port 8200
 
 test:
 	. venv/bin/activate && \
