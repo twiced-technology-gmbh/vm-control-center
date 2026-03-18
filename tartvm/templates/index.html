@@ -1588,6 +1588,7 @@
             const ipDisplay = h.ip ? ` <span class="font-mono text-secondary">(${escapeHtml(h.ip)})</span>` : '';
             const hColor = _hostColor(h.name);
 
+            const nameJson = JSON.stringify(h.name);
             return `
                 <div class="flex items-center justify-between host-row" style="padding: 6px 0;">
                     <div class="flex items-center gap-3">
@@ -1596,10 +1597,26 @@
                         </span>
                         <span class="text-xs font-medium" style="color: ${hColor};">${escapeHtml(h.name)}${ipDisplay}</span>
                     </div>
-                    <div class="flex items-center gap-4 text-xs text-secondary host-stats">
-                        <span><i class="fas fa-microchip mr-1" style="font-size: 10px;"></i>${h.cores || '?'} cores</span>
-                        <span><i class="fas fa-memory mr-1" style="font-size: 10px;"></i>${memGb} GB</span>
-                        <span><i class="fas fa-cube mr-1" style="font-size: 10px;"></i>${h.vm_slots || '?'} VM slots</span>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-4 text-xs text-secondary host-stats">
+                            <span><i class="fas fa-microchip mr-1" style="font-size: 10px;"></i>${h.cores || '?'} cores</span>
+                            <span><i class="fas fa-memory mr-1" style="font-size: 10px;"></i>${memGb} GB</span>
+                            <span><i class="fas fa-cube mr-1" style="font-size: 10px;"></i>${h.vm_slots || '?'} VM slots</span>
+                        </div>
+                        <div class="vm-overflow">
+                            <button class="icon-btn icon-btn-blue vm-overflow-btn" data-tooltip="Host Actions">
+                                <i class="fas fa-ellipsis-vertical" style="font-size: 11px;"></i>
+                            </button>
+                            <div class="vm-overflow-menu">
+                                <div class="vm-overflow-section-label">Manage</div>
+                                <button class="vm-overflow-item" onclick="editHost(${nameJson})">
+                                    <i class="fas fa-pen" style="color: #60a5fa;"></i> Edit Host
+                                </button>
+                                <button class="vm-overflow-item" onclick="removeHost(${nameJson})">
+                                    <i class="fas fa-trash" style="color: #f87171;"></i> Remove Host
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -2233,6 +2250,55 @@
 
         hideModal(createVmModal);
         showPrompt('Create VM: ' + vmName, generateCreateVmPrompt(vmName, image, worker, cpu, memory, disk, startup));
+    }
+
+    async function removeHost(name) {
+        if (!confirm(`Remove host "${name}" from Orchard? The machine itself is unaffected.`)) return;
+        try {
+            await api.delete(`/api/hosts/${encodeURIComponent(name)}`);
+            showToast(`Host "${name}" removed`, 'success');
+            loadVMs();
+        } catch (e) {
+            showToast(`Failed to remove host: ${e.message}`, 'error');
+        }
+    }
+
+    function editHost(name) {
+        const newName = prompt(`Rename host "${name}" to:`, name);
+        if (!newName || newName === name) return;
+        showPrompt('Rename Host: ' + name, generateRenameHostPrompt(name, newName));
+    }
+
+    function generateRenameHostPrompt(oldName, newName) {
+        return `Rename Orchard worker "${oldName}" to "${newName}".
+
+The worker name is set when the worker process starts — renaming requires updating the launchd plist and restarting the worker.
+
+Steps on the ${oldName} machine:
+
+1. Open the Orchard worker plist:
+   \`\`\`
+   nano ~/Library/LaunchAgents/org.cirruslabs.orchard.worker.plist
+   \`\`\`
+
+2. Find the \`--name\` argument and change it:
+   \`\`\`
+   <string>--name</string>
+   <string>${newName}</string>
+   \`\`\`
+
+3. Unload and reload the plist:
+   \`\`\`
+   launchctl unload ~/Library/LaunchAgents/org.cirruslabs.orchard.worker.plist
+   launchctl load ~/Library/LaunchAgents/org.cirruslabs.orchard.worker.plist
+   \`\`\`
+
+4. Verify the worker registered under the new name:
+   \`\`\`
+   orchard list workers
+   \`\`\`
+
+Note: The old worker entry "${oldName}" will disappear once it disconnects. VMs previously assigned to "${oldName}" will still reference the old worker name in their metadata.`;
     }
 
     function handleCreateWorker() {
