@@ -1552,44 +1552,36 @@ async def _sync_db_via_api(service: dict, direction: str, local_path: str, task_
     Returns True if the API-based sync was used."""
     prod_upstream = service.get("prod_upstream", "")
     dev_upstream = await _resolve_dev_upstream(service)
-    # Determine the running cockpit URL (whichever side is currently active)
     if direction == "from_vm":
-        url = f"http://{prod_upstream}"
+        # Backup FROM the VM, restore TO local dev
+        src_url = f"http://{prod_upstream}" if prod_upstream else None
+        dst_url = f"http://{dev_upstream}" if dev_upstream else None
     else:
-        url = f"http://{dev_upstream}" if dev_upstream else None
-    if not url:
+        # Backup FROM local dev, restore TO the VM
+        src_url = f"http://{dev_upstream}" if dev_upstream else None
+        dst_url = f"http://{prod_upstream}" if prod_upstream else None
+    if not src_url or not dst_url:
         return False
     try:
         import aiohttp
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
-            if direction == "from_vm":
-                async with session.get(f"{url}/api/db/backup") as resp:
-                    if resp.status != 200:
-                        return False
-                    data = await resp.read()
-                    if len(data) < 100:
-                        return False
-                    Path(local_path).parent.mkdir(parents=True, exist_ok=True)
-                    Path(local_path).write_bytes(data)
-                    return True
-            else:
-                local = Path(local_path)
-                if not local.exists() or local.stat().st_size < 100:
+            # Download backup from source
+            async with session.get(f"{src_url}/api/db/backup") as resp:
+                if resp.status != 200:
                     return False
-                # Create a clean backup locally first (merge WAL)
-                import sqlite3 as _sqlite3
-                backup_path = Path(f"/tmp/_sync_backup_{os.getpid()}.db")
-                try:
-                    src = _sqlite3.connect(str(local))
-                    dst = _sqlite3.connect(str(backup_path))
-                    src.backup(dst)
-                    dst.close()
-                    src.close()
-                    data = backup_path.read_bytes()
-                finally:
-                    backup_path.unlink(missing_ok=True)
-                async with session.post(f"{url}/api/db/restore", data=data) as resp:
-                    return resp.status == 200
+                data = await resp.read()
+                if len(data) < 100:
+                    return False
+
+            # Write file to disk (for local reference)
+            Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(local_path).write_bytes(data)
+
+            # Restore to destination
+            async with session.post(f"{dst_url}/api/db/restore", data=data,
+                                   headers={"Content-Type": "application/octet-stream"}) as r:
+                logger.info("DB restore to %s: %s", dst_url, r.status)
+                return r.status == 200
     except Exception as e:
         logger.warning("API-based DB sync failed (%s): %s", direction, e)
         return False
